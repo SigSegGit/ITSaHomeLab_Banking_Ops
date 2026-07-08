@@ -81,6 +81,11 @@ containers) start running side by side, and where a real HA/DR story
 becomes necessary for the first time — a stateful ledger service needs
 a real answer for "what happens when a node dies," which is exactly
 the kind of question this milestone exists to have an answer for.
+**Half-answered already**: `docs/runbooks/ledger-backup-restore.md` is
+the tested recovery path for a dead node's *data*; a live node
+automatically taking over a dead node's *traffic* (real replication,
+failover) is the harder half still open — see that runbook's "known
+gap" section.
 
 ## M4 — Observability & security posture
 

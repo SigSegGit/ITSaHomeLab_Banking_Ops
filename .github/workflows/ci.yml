@@ -64,4 +64,42 @@ jobs:
           docker compose logs
           docker compose down -v
 
+      # docs/runbooks/ledger-backup-restore.md's actual mechanism,
+      # through the same docker-compose wrapper the runbook documents
+      # (verified directly against Postgres, not through Docker, in the
+      # authoring environment — see STATUS.md for why).
+      - name: ledger-service — backup/restore round-trip
+        working-directory: apps/ledger-service
+        run: |
+          docker compose up -d
+          waited=0
+          until curl -s -o /dev/null http://127.0.0.1:8000/health; do
+            sleep 1
+            waited=$((waited + 1))
+            if [ "$waited" -gt 60 ]; then echo "service never came up"; exit 1; fi
+          done
+
+          before=$(curl -s -X POST http://127.0.0.1:8000/accounts \
+            -H 'Content-Type: application/json' -d '{"owner_name":"BackupTest"}')
+          account_id=$(echo "$before" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+          curl -s -X POST "http://127.0.0.1:8000/accounts/$account_id/deposit" \
+            -H 'Content-Type: application/json' -d '{"amount_cents":424242}' >/dev/null
+
+          ./backup.sh ./ci-backups
+          dump_file=$(ls ./ci-backups/*.sql)
+
+          docker compose exec -T db psql -U ledger -d ledger \
+            -c "DROP TABLE accounts CASCADE; DROP TABLE transactions CASCADE;"
+
+          ./restore.sh "$dump_file"
+
+          restored_balance=$(curl -s "http://127.0.0.1:8000/accounts/$account_id" \
+            | python3 -c "import sys,json; print(json.load(sys.stdin)['balance_cents'])")
+          if [ "$restored_balance" != "424242" ]; then
+            echo "FAIL: expected 424242 after restore, got $restored_balance"
+            exit 1
+          fi
+          echo "ok: balance survived a simulated node death + restore"
+          docker compose down -v
+
       # M5: container image scanning once there's more than one image.

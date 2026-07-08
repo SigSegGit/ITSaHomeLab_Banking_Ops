@@ -2,6 +2,30 @@
 
 Read this first when resuming work cold.
 
+## M3's backup/restore half of DR: DONE (the failover half is a real open decision, not solved)
+
+`apps/ledger-service/backup.sh` / `restore.sh`: `pg_dump --clean
+--if-exists` / `psql` round-trip. Tested for real — not through
+`docker compose` (blocked here, see the entry below), directly against
+Postgres: dumped a database with real data (11 accounts, 201
+transactions accumulated from this session's own testing), dropped
+every table (simulating the node dying outright), restored from the
+dump, confirmed every balance came back byte-for-byte. CI runs the
+same round-trip through the actual `docker compose exec` wrapper these
+scripts use, where Docker Hub is reachable.
+`docs/runbooks/ledger-backup-restore.md` documents it.
+
+**What this deliberately does not solve**: each `banking_app_nodes`
+host runs its own independent Postgres right now — there's no shared
+state, no replication, no automatic failover. Backup/restore answers
+"how do I recover a dead node's data," not "what happens to in-flight
+traffic when a node dies right now." Real replication (which node is
+primary, how a client fails over, split-brain avoidance) is a genuine
+architecture decision — flagged in the runbook rather than silently
+built alone, since it changes what "a node" even means for this
+workload and isn't something to decide unilaterally while the lab's
+owner is away.
+
 ## M3 (started early) — ledger-service: DONE, and actually execution-verified this time
 
 Unlike the M1/M4 entries below (statically verified only, because this
