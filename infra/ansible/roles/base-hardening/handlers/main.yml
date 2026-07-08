@@ -3,3 +3,7 @@
   ansible.builtin.service:
     name: ssh
     state: reloaded
+
+- name: Apply console keyboard layout
+  ansible.builtin.command: setupcon
+  changed_when: true

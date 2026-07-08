@@ -1,0 +1,14 @@
+---
+# First real machine in the lab: Raspberry Pi 4B, Raspberry Pi OS Lite
+# 64-bit (Trixie), enrolled via bootstrap/enroll.sh. Left in `ungrouped`
+# (see hosts.yml) until its role is decided — per ARCHITECTURE.md,
+# assigning a job is a separate, deliberate commit from enrollment.
+
+base_hardening_timezone: Europe/Paris
+base_hardening_console_keyboard_layout: fr
+
+# Public key only — see docs/runbooks/enroll-a-machine.md. Ansible
+# manages this file so that adding/rotating a key later is a commit,
+# not an SSH session on the box.
+base_hardening_authorized_keys:
+  - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC061hvzLwMkqaYC7JQ8mJdlf8e1t0sjTExnC3WreLEGbWhW9PdJO5ozoZgLOVKQdqUvnwsVe/27ns0r/15RYPQUlc79BV+SJBB0nIEckqd1woilH/UYx5sLNFSUMxsTB/mrETy2U7SjunWOMcW1HlIRUzAgFDD880YgLbVz3bYJyi+QQcUvjSvvLMeck3T+io1ScFyXjnnBB0Jl2Rja2M04/yngNpSR6Rxxtn3IR/gF829mEma7JfQYPjovLwGEnu8iDxuQYCc85Kz8xpOICIBIfFfokvRlcPt8cPw/75hy6Gdq2pFv0nbweuei6wfyAPEDTlw1tDr4SizXbmWdknAnUXdn76SqqQKGfvvSji/Kzx3g8xrCOGXAq0IB3VNrsc4ULwMyMtS/RZ7mID72c1pSK5jOp1UJh1nYGsSO4yC+JUtCtQGCDLV3kU6TngUq+Hb1mh/rW61//YQ2kIBps1JULKq2jvcvhsFlOeUzWIBv8wj2JZv6LktkWxqAMMQ+BM= sigseg@SIGSEG-DELL"

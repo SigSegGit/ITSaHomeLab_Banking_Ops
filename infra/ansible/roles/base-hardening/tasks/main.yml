@@ -58,6 +58,27 @@
     direction: incoming
   when: base_hardening_firewall
 
+- name: Manage authorized SSH public keys
+  ansible.posix.authorized_key:
+    user: "{{ base_hardening_authorized_keys_user }}"
+    key: "{{ item }}"
+    exclusive: false
+  loop: "{{ base_hardening_authorized_keys }}"
+  when: base_hardening_authorized_keys | length > 0
+
+- name: Set system timezone
+  community.general.timezone:
+    name: "{{ base_hardening_timezone }}"
+  when: base_hardening_timezone | length > 0
+
+- name: Set console keyboard layout
+  ansible.builtin.lineinfile:
+    path: /etc/default/keyboard
+    regexp: '^XKBLAYOUT='
+    line: 'XKBLAYOUT="{{ base_hardening_console_keyboard_layout }}"'
+  when: base_hardening_console_keyboard_layout | length > 0
+  notify: Apply console keyboard layout
+
 - name: Confirm this host's identity for the reconcile log
   ansible.builtin.debug:
     msg: >-

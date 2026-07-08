@@ -19,3 +19,14 @@ base_hardening_firewall: false
 # Ports left open when the firewall is enabled.
 base_hardening_allowed_tcp_ports:
   - 22
+
+# Public keys authorized for base_hardening_authorized_keys_user.
+# Empty by default (no-op) — set per-host so key rotation is a git
+# commit, not an SSH session on the box. Private keys never belong here
+# or anywhere else in this repo.
+base_hardening_authorized_keys: []
+base_hardening_authorized_keys_user: "{{ ansible_user_id }}"
+
+# Unset by default (no-op) — set per-host/group when it matters.
+base_hardening_timezone: ""
+base_hardening_console_keyboard_layout: ""
