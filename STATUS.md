@@ -2,6 +2,41 @@
 
 Read this first when resuming work cold.
 
+## M4 (started early) — monitoring stack: Prometheus + Grafana: DONE (statically verified)
+
+Brought forward from the roadmap's original M4 slot because it's the
+most direct way to make the lab's actual point visible: three
+completely different machines (Pi 4B, a Freebox-hosted VM, a VMware
+Workstation VM), each with different CPU/RAM/disk, side by side on one
+dashboard — the foundation for a real ramp-up/down story later (M3+),
+not just a nice-to-have.
+
+- `node-exporter` role (applied to `hosts: all`): installs
+  `prometheus-node-exporter` (real Debian package) plus `avahi-daemon`
+  so every machine advertises itself as `<hostname>.local` — no manual
+  IP bookkeeping.
+- `monitoring-stack` role (applied to inventory's new `monitoring_host`
+  group — the Freebox VM, chosen for being always-on independent of
+  anyone's laptop): Prometheus (Debian package) scraping every real
+  machine by mDNS name; Grafana (Debian doesn't package it, so its own
+  apt repo + signing key are added) with the Prometheus datasource and
+  a first dashboard (CPU%, memory%, disk free, load average, faceted by
+  instance) both provisioned automatically — opening Grafana for the
+  first time needs zero manual click-through.
+- `monitoring_host` is a separate inventory axis from `freebox_nodes`
+  on purpose: what a machine's hardware *is* and what it *runs* aren't
+  the same thing, and moving the monitoring stack to a different
+  machine later should be a one-line inventory change.
+
+**Verification honesty note, same as M1's**: ansible-lint (production
+profile), playbook syntax-check, yamllint, and the dashboard/datasource
+JSON/YAML are all validated; all four apt package names (`prometheus`,
+`prometheus-node-exporter`, `avahi-daemon`, `libnss-mdns`) confirmed to
+actually exist in a Debian-family archive. Actual execution — Grafana
+reachable, dashboard populated, mDNS resolution working between real
+machines on the real LAN — is the next real machines' reconcile pass
+to prove, same as M1.
+
 ## Pull-loop bug, round two: a second broken fix landed, now actually fixed
 
 Between the first fix below and this entry, five commits landed on

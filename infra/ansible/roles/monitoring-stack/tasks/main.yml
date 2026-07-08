@@ -1,0 +1,104 @@
+---
+# The always-on side of M4: Prometheus (real Debian package) scraping
+# every enrolled machine's node-exporter over mDNS, feeding Grafana
+# (Debian doesn't package Grafana, so its own apt repo is added).
+# Applied to whichever host is in inventory/hosts.yml's
+# `monitoring_host` group — deliberately not tied to hardware type, so
+# moving "which machine hosts monitoring" later is a one-line inventory
+# change, not a re-architecture.
+
+- name: Install Prometheus
+  ansible.builtin.package:
+    name: prometheus
+    state: present
+  when: ansible_facts['os_family'] == "Debian"
+
+- name: Install libnss-mdns (resolves other machines' *.local names)
+  ansible.builtin.package:
+    name: libnss-mdns
+    state: present
+  when: ansible_facts['os_family'] == "Debian"
+
+- name: Deploy Prometheus scrape config
+  ansible.builtin.template:
+    src: prometheus.yml.j2
+    dest: /etc/prometheus/prometheus.yml
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart prometheus
+
+- name: Add the Grafana apt signing key
+  ansible.builtin.get_url:
+    url: https://apt.grafana.com/gpg.key
+    dest: /etc/apt/keyrings/grafana.asc
+    mode: "0644"
+  register: grafana_key
+
+- name: Add the Grafana apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/grafana.asc] https://apt.grafana.com stable main"
+    filename: grafana
+    state: present
+  when: grafana_key is succeeded
+
+- name: Install Grafana
+  ansible.builtin.package:
+    name: grafana
+    state: present
+  when: grafana_key is succeeded
+
+- name: Ensure Grafana's provisioning directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: grafana
+    mode: "0750"
+  loop:
+    - /etc/grafana/provisioning/datasources
+    - /etc/grafana/provisioning/dashboards
+    - /var/lib/grafana/dashboards
+  when: grafana_key is succeeded
+
+- name: Provision the Prometheus datasource
+  ansible.builtin.copy:
+    src: grafana-datasource-prometheus.yml
+    dest: /etc/grafana/provisioning/datasources/prometheus.yml
+    owner: root
+    group: grafana
+    mode: "0640"
+  when: grafana_key is succeeded
+  notify: Restart grafana-server
+
+- name: Provision the dashboard file-provider
+  ansible.builtin.copy:
+    src: grafana-dashboard-provider.yml
+    dest: /etc/grafana/provisioning/dashboards/homelab.yml
+    owner: root
+    group: grafana
+    mode: "0640"
+  when: grafana_key is succeeded
+  notify: Restart grafana-server
+
+- name: Deploy the lab-overview dashboard
+  ansible.builtin.copy:
+    src: dashboard-lab-overview.json
+    dest: /var/lib/grafana/dashboards/lab-overview.json
+    owner: grafana
+    group: grafana
+    mode: "0640"
+  when: grafana_key is succeeded
+
+- name: Ensure Prometheus is enabled and running
+  ansible.builtin.service:
+    name: prometheus
+    state: started
+    enabled: true
+
+- name: Ensure Grafana is enabled and running
+  ansible.builtin.service:
+    name: grafana-server
+    state: started
+    enabled: true
+  when: grafana_key is succeeded

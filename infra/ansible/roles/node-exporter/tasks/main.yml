@@ -1,0 +1,35 @@
+---
+# Exposes this machine's own CPU/RAM/disk/network metrics on :9100 for
+# the monitoring host (monitoring-stack role) to scrape. Debian ships
+# node_exporter as a real package (prometheus-node-exporter) — no
+# manual binary download, no separate systemd unit to author, it's
+# already wired up by the package itself.
+
+- name: Install prometheus-node-exporter
+  ansible.builtin.package:
+    name: prometheus-node-exporter
+    state: present
+  when: ansible_facts['os_family'] == "Debian"
+
+- name: Ensure prometheus-node-exporter is enabled and running
+  ansible.builtin.service:
+    name: prometheus-node-exporter
+    state: started
+    enabled: true
+  when: ansible_facts['os_family'] == "Debian"
+
+# mDNS so the monitoring host can reach this machine as
+# "<hostname>.local" without anyone hand-tracking IP addresses —
+# see docs/network.md and monitoring-stack's scrape config.
+- name: Install avahi-daemon (advertises this machine's mDNS name)
+  ansible.builtin.package:
+    name: avahi-daemon
+    state: present
+  when: ansible_facts['os_family'] == "Debian"
+
+- name: Ensure avahi-daemon is enabled and running
+  ansible.builtin.service:
+    name: avahi-daemon
+    state: started
+    enabled: true
+  when: ansible_facts['os_family'] == "Debian"

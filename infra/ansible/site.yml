@@ -1,15 +1,29 @@
 ---
 # Entrypoint every machine runs against itself (see ARCHITECTURE.md —
-# ansible-pull, --connection=local, --limit "$(hostname)"). Add a play
-# per group as groups gain real roles in later milestones; keep the
-# `ungrouped` play first and minimal — it's every machine's fallback
-# baseline the moment it enrolls, before anyone decides what it's for.
+# ansible-pull, --connection=local, --limit "%H"; a host must be a
+# literal key in inventory/hosts.yml or this matches nothing). Add a
+# play per group as groups gain real roles in later milestones.
 
 - name: Baseline every enrolled machine gets, regardless of role
   hosts: all
   become: true
   roles:
     - base-hardening
+
+- name: Metrics agent every machine exports, so heterogeneous hardware
+    is visible in one place (M4)
+  hosts: all
+  become: true
+  roles:
+    - node-exporter
+
+- name: The always-on monitoring stack (Prometheus + Grafana) — lives
+    on whichever host is designated in inventory/hosts.yml's
+    `monitoring_host` group, deliberately not tied to hardware type
+  hosts: monitoring_host
+  become: true
+  roles:
+    - monitoring-stack
 
 # M2+: add a play per workload group here, e.g.:
 # - name: Kubernetes nodes

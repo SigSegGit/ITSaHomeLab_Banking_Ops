@@ -1,0 +1,10 @@
+---
+# Every real machine currently in the lab, used to build Prometheus'
+# scrape target list. Kept as an explicit list rather than derived from
+# `groups['all']` so adding a machine to the lab doesn't silently start
+# scraping it before its node-exporter role has actually run once —
+# add it here in the same commit that adds real monitoring for it.
+monitoring_scrape_targets:
+  - ITSaRevolution
+  - smallrevolt
+  - MorePower

@@ -1,0 +1,12 @@
+# Grafana provisioning: tells Grafana to load any dashboard JSON dropped
+# in this folder automatically, so the lab-overview dashboard shows up
+# without a manual import.
+apiVersion: 1
+
+providers:
+  - name: homelab
+    folder: Homelab
+    type: file
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards

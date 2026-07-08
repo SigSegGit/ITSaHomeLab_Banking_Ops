@@ -1,0 +1,17 @@
+# Managed by this repo (infra/ansible/roles/monitoring-stack) — local
+# edits are overwritten on the next reconcile pass.
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: node
+    static_configs:
+{% for target in monitoring_scrape_targets %}
+      - targets: ["{{ target }}.local:9100"]
+        labels:
+          instance: "{{ target }}"
+{% endfor %}
