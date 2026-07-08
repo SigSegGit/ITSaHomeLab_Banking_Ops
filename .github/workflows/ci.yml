@@ -24,6 +24,16 @@ jobs:
         # young, but any lint issue is worth seeing in the PR either way.
         continue-on-error: true
 
-      # M2+: terraform fmt -check / validate once infra/terraform/ has
-      # real content; M5: container image build + scan once apps/ has
-      # real Dockerfiles.
+      # The dev environment used to author this can't reach the
+      # Terraform registry (egress-scoped proxy), so full validate runs
+      # here, where the runner's network is open — fmt and HCL syntax
+      # are checked locally before push, provider-schema validation is
+      # CI's job.
+      - name: terraform fmt + validate
+        working-directory: infra/terraform
+        run: |
+          terraform fmt -check -diff
+          terraform init -backend=false -input=false
+          terraform validate
+
+      # M5: container image build + scan once apps/ has real Dockerfiles.

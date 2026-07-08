@@ -2,7 +2,18 @@
 
 Read this first when resuming work cold.
 
-## M0 — repo scaffold & governance: IN PROGRESS
+## M2 (partial) — Terraform skeleton + network design: IN PROGRESS
+
+`infra/terraform/` now has the real resource shapes (VMs cloud-init
+straight into the M1 pull loop; counts default to zero so `plan` is a
+no-op until M2 starts for real), `docs/network.md` documents the
+segmented VLAN topology and its firewall rules, and CI runs
+`terraform fmt`+`init`+`validate` on every push (the authoring
+environment can't reach the Terraform registry, so provider-schema
+validation deliberately lives in CI — fmt and HCL parseability are
+checked before push). Proxmox remains an explicitly flagged assumption.
+
+## M0 — repo scaffold & governance: DONE
 
 Scaffolding this repo: README, LICENSE (Unlicense), ROADMAP.md,
 ARCHITECTURE.md (the GitHub-as-nerve-center pull design), this file,

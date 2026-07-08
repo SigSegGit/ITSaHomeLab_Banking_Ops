@@ -1,0 +1,12 @@
+# Copy to terraform.tfvars (gitignored) and fill in. Auth is NOT here:
+# export PROXMOX_VE_API_TOKEN='user@pve!tokenid=uuid' in the shell.
+
+proxmox_endpoint = "https://pve.lab.local:8006/"
+proxmox_node     = "pve"
+vm_template_id   = 9000 # a cloud-init-enabled Debian 12 template
+
+k8s_nodes = {
+  "k8s-1" = { cores = 2, memory_mb = 4096, disk_gb = 40 }
+  "k8s-2" = { cores = 2, memory_mb = 4096, disk_gb = 40 }
+  "k8s-3" = { cores = 2, memory_mb = 4096, disk_gb = 40 }
+}
