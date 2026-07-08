@@ -6,9 +6,13 @@ a bank: network segmentation, IaC-provisioned platform, a small set of
 to actually operate, observability, secrets management, backup/DR, and
 a CI/CD pipeline that deploys all of it.
 
-Built for interview prep, not production. See [`ROADMAP.md`](ROADMAP.md)
-for the milestone plan and exactly what each milestone changes in the
-infra. See [`STATUS.md`](STATUS.md) for where things currently stand.
+Built for interview prep, not production.
+
+**Start with [`docs/OVERVIEW.md`](docs/OVERVIEW.md)** — a visual tour
+(diagrams, no jargon walls) of how this repo acts as the lab's control
+plane. Then [`ROADMAP.md`](ROADMAP.md) for the milestone plan and
+exactly what each milestone changes in the infra, and
+[`STATUS.md`](STATUS.md) for where things currently stand.
 
 **Disposability note**: this repo is intentionally unprotected (no
 branch protection, permissive license — see [`LICENSE`](LICENSE)) and
