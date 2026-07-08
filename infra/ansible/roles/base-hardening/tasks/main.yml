@@ -5,13 +5,13 @@
 # out; this is not meant to be a finished hardening baseline yet.
 
 - name: Ensure unattended package updates are enabled
-  package:
+  ansible.builtin.package:
     name: unattended-upgrades
     state: present
   when: ansible_facts['os_family'] == "Debian"
 
 - name: Confirm this host's identity for the reconcile log
-  debug:
+  ansible.builtin.debug:
     msg: >-
       {{ inventory_hostname }} reconciled at {{ ansible_date_time.iso8601 }}
       (groups: {{ group_names | join(', ') }})

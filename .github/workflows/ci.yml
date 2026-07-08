@@ -19,16 +19,18 @@ jobs:
 
       - name: ansible-lint
         run: ansible-lint infra/ansible/site.yml
-        # Grows real teeth once infra/ansible/ has roles beyond the M1
-        # base-hardening stub; not fatal yet while the repo is this
-        # young, but any lint issue is worth seeing in the PR either way.
-        continue-on-error: true
 
       # The dev environment used to author this can't reach the
       # Terraform registry (egress-scoped proxy), so full validate runs
       # here, where the runner's network is open — fmt and HCL syntax
       # are checked locally before push, provider-schema validation is
       # CI's job.
+      # ubuntu-latest stopped shipping terraform preinstalled — learned
+      # from this workflow's first red run, not from the docs.
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+
       - name: terraform fmt + validate
         working-directory: infra/terraform
         run: |
