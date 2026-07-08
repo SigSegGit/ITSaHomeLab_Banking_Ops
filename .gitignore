@@ -11,3 +11,8 @@ age.key
 *.dec.yml
 
 .DS_Store
+
+# Python
+__pycache__/
+*.pyc
+.venv/
