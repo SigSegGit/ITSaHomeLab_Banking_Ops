@@ -47,4 +47,21 @@ jobs:
           terraform init -backend=false -input=false
           terraform validate
 
-      # M5: container image build + scan once apps/ has real Dockerfiles.
+      # Real build + real run + real HTTP requests against apps/
+      # ledger-service, not just lint. The dev environment used to
+      # author this can't reach Docker Hub's CDN (egress-scoped
+      # proxy rejects CloudFront's presigned URLs), so this is the
+      # first place the actual image build gets proven, same reasoning
+      # as the Terraform step above.
+      - name: ledger-service — build, run, smoke test, load generator
+        working-directory: apps/ledger-service
+        run: |
+          docker compose up --build -d
+          BASE_URL=http://127.0.0.1:8000 ./smoke-e2e.sh
+          pip install --quiet httpx
+          python3 load-generator.py --base-url http://127.0.0.1:8000 \
+            --accounts 5 --start-rps 5 --max-rps 15 --step-rps 5 --step-seconds 3
+          docker compose logs
+          docker compose down -v
+
+      # M5: container image scanning once there's more than one image.

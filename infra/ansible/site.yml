@@ -25,6 +25,13 @@
   roles:
     - monitoring-stack
 
+- name: The banking workload (M3) — apps/ledger-service via docker
+    compose, on inventory's `banking_app_nodes` group
+  hosts: banking_app_nodes
+  become: true
+  roles:
+    - banking-app
+
 # M2+: add a play per workload group here, e.g.:
 # - name: Kubernetes nodes
 #   hosts: k8s_node

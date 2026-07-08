@@ -2,6 +2,52 @@
 
 Read this first when resuming work cold.
 
+## M3 (started early) — ledger-service: DONE, and actually execution-verified this time
+
+Unlike the M1/M4 entries below (statically verified only, because this
+authoring environment's Python/apt integration is broken), this one
+got real execution testing: FastAPI + Postgres, run for real — a real
+`postgresql` install, a real `uvicorn` process, real `curl` requests —
+not just written and hoped over. What that caught:
+
+- **A real concurrency bug, before it shipped**: the first `deposit`
+  endpoint did `account.balance_cents += amount` — a Python read-
+  modify-write, which loses updates under concurrent deposits to the
+  same account (`withdraw`/`transfer` were already written as atomic
+  SQL-side conditional updates, for the insufficient-funds check;
+  `deposit` just hadn't been held to the same standard yet). Caught by
+  inspection before running anything, then proved with the fix in
+  place: 50 concurrent deposits of 100 cents each land on exactly 5000,
+  every time — `apps/ledger-service/smoke-e2e.sh` codifies this check
+  permanently, it's not a one-off manual test.
+- Every endpoint verified against a real running instance: account
+  creation, deposit, withdraw, insufficient-funds rejection (400),
+  transfer (both sides' balances), transaction history, 404 on an
+  unknown account, and `/metrics` actually exposing Prometheus series.
+- `apps/ledger-service/load-generator.py` (ramps request rate,
+  deliberately built to *create* the bottleneck the lab exists to show)
+  run for real against the live instance and produces sane per-step
+  p50/p99 latencies.
+- `docker compose config` validates the compose file's schema.
+  **Not verified here**: the actual `docker build`/image pull — this
+  sandbox's egress proxy rejects Docker Hub's CDN (CloudFront presigned
+  URLs don't tolerate the TLS-intercepting proxy; confirmed via
+  `$HTTPS_PROXY/__agentproxy/status` — `production.cloudfront.docker.com`
+  shows a hard `connect_rejected`, not a fixable config gap on this
+  end). The real machines pull over their own home-network connection,
+  not through this sandbox, so this specific gap shouldn't reproduce
+  there — but it's the one thing this entry can't claim to have proven.
+- `banking-app` Ansible role (Docker + compose plugin from Debian's own
+  archive — no external repo needed, unlike Grafana) is statically
+  verified (ansible-lint production profile, including real module-
+  resolution against the newly-added `community.docker` collection)
+  but not execution-tested, same limitation as M1/M4.
+
+Deployed to `banking_app_nodes` (Pi + MorePower, deliberately not the
+Freebox VM — see `monitoring_host`'s comment in `hosts.yml` for why
+keeping monitoring on its own dedicated host matters for a fair
+load-test comparison).
+
 ## M4 (started early) — monitoring stack: Prometheus + Grafana: DONE (statically verified)
 
 Brought forward from the roadmap's original M4 slot because it's the

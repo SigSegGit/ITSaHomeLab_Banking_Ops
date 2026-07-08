@@ -60,11 +60,20 @@ VM into a cluster member — no manual step in between.
 
 ## M3 — The banking workloads, deployed GitOps-style
 
-**Ships:** `apps/` — a small set of simulated services (a ledger API,
-a payments processor, a basic fraud-scoring stub) as containers, plus
-an in-cluster Flux (or Argo CD — decide when this milestone starts)
-controller watching `apps/` directly, so deploying a new version of a
-workload is "merge to main," full stop.
+**Ships (started early, docker-compose stepping stone):**
+`apps/ledger-service` — a real FastAPI + Postgres ledger (accounts,
+deposit/withdraw/transfer, transaction history, a Prometheus `/metrics`
+endpoint feeding straight into M4's dashboard), deployed via
+`docker compose` on `banking_app_nodes` (the Pi and MorePower, on
+purpose — not the Freebox VM, which stays dedicated to monitoring so
+the load comparison isn't confounded). `apps/ledger-service/load-
+generator.py` ramps request rate against a running instance, deliberate
+about creating a visible bottleneck rather than describing one.
+A Flux/Argo CD controller watching `apps/` directly (so "deploying a
+new version" becomes "merge to main," no manual step) is real M3 infra
+work that needs `k8s_node`s to exist first — docker-compose is the
+pragmatic stand-in until that milestone actually starts, not a
+substitute for it.
 
 **Infra repercussion:** this is where the two reconciliation loops from
 `ARCHITECTURE.md` (Ansible-pull for hosts, GitOps controller for
