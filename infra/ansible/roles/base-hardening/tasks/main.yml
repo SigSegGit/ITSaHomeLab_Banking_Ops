@@ -1,14 +1,62 @@
 ---
 # The baseline every enrolled machine gets before anyone decides what
-# it's actually for (site.yml's `hosts: all` play). Deliberately small
-# at M0/M1 — grows as the lab's actual security posture (M4) gets built
-# out; this is not meant to be a finished hardening baseline yet.
+# it's actually for (site.yml's `hosts: all` play). Unattended-updates
+# are unconditional; anything that could lock the operator out (SSH
+# auth policy, firewall) is toggle-gated — see defaults/main.yml.
 
-- name: Ensure unattended package updates are enabled
+- name: Install unattended-upgrades
   ansible.builtin.package:
     name: unattended-upgrades
     state: present
   when: ansible_facts['os_family'] == "Debian"
+
+- name: Enable periodic unattended security updates
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+    owner: root
+    group: root
+    mode: "0644"
+  when: ansible_facts['os_family'] == "Debian"
+
+- name: Apply SSH lockdown drop-in (key-only, no root login)
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/99-homelab-hardening.conf
+    content: |
+      # Managed by base-hardening (this repo). Local edits will be
+      # overwritten on the next reconcile pass.
+      PasswordAuthentication no
+      PermitRootLogin prohibit-password
+      X11Forwarding no
+    owner: root
+    group: root
+    mode: "0644"
+    validate: sshd -t -f %s
+  when: base_hardening_ssh_lockdown
+  notify: Reload sshd
+
+- name: Install UFW
+  ansible.builtin.package:
+    name: ufw
+    state: present
+  when: base_hardening_firewall
+
+- name: Allow inbound TCP ports through UFW
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  loop: "{{ base_hardening_allowed_tcp_ports }}"
+  when: base_hardening_firewall
+
+- name: Enable UFW with default-deny inbound
+  community.general.ufw:
+    state: enabled
+    policy: deny
+    direction: incoming
+  when: base_hardening_firewall
 
 - name: Confirm this host's identity for the reconcile log
   ansible.builtin.debug:

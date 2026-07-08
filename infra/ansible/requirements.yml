@@ -1,0 +1,8 @@
+---
+# Collections site.yml depends on beyond ansible-core builtins.
+# Installed by bootstrap/enroll.sh at enrollment time and refreshed by
+# the reconcile service before each run, so a collection added here
+# reaches every machine through the same pull loop as everything else.
+collections:
+  - name: community.general
+    version: ">=8.0.0"

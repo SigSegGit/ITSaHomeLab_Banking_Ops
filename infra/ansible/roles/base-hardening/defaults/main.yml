@@ -1,0 +1,21 @@
+---
+# Lockout-shaped changes (SSH auth policy, firewall) default OFF and are
+# enabled per group/host in the inventory. Rationale: this role runs
+# unattended on every enrolled machine via the pull loop — a bad default
+# here doesn't fail a CI job, it locks the operator out of a real box.
+# Flipping a toggle is a one-line inventory commit, which is exactly the
+# kind of explicit, reviewable step ARCHITECTURE.md wants for anything
+# irreversible-shaped.
+
+# Write an sshd drop-in: key-only auth, no root login, no X11.
+# Only enable for machines you can already reach with an SSH key.
+base_hardening_ssh_lockdown: false
+
+# Install UFW and default-deny inbound (SSH allowed). Outbound stays
+# open at this layer — per-segment egress policy is the router's job
+# (docs/network.md), not per-host duplication.
+base_hardening_firewall: false
+
+# Ports left open when the firewall is enabled.
+base_hardening_allowed_tcp_ports:
+  - 22

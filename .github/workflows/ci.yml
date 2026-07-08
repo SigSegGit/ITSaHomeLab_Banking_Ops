@@ -17,8 +17,17 @@ jobs:
       - name: yamllint
         run: yamllint -d relaxed .
 
+      - name: Install ansible collections the playbook depends on
+        run: ansible-galaxy collection install -r infra/ansible/requirements.yml
+
       - name: ansible-lint
         run: ansible-lint infra/ansible/site.yml
+
+      # Static-only on purpose: the pull loop's real execution test is
+      # the first enrolled machine (see docs/runbooks/enroll-a-machine.md
+      # — journalctl on the first reconcile pass). A container-based
+      # execution test here would exercise a different init/apt stack
+      # than the real VMs and mostly test the container.
 
       # The dev environment used to author this can't reach the
       # Terraform registry (egress-scoped proxy), so full validate runs

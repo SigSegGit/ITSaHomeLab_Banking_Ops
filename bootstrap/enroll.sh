@@ -41,6 +41,9 @@ else
     git clone --depth 1 "${REPO_URL}" "${INSTALL_DIR}"
 fi
 
+echo "==> installing required ansible collections"
+ansible-galaxy collection install -r "${INSTALL_DIR}/infra/ansible/requirements.yml"
+
 echo "==> installing the reconcile service + timer"
 cat >/etc/systemd/system/homelab-reconcile.service <<EOF
 [Unit]
@@ -52,6 +55,7 @@ After=network-online.target
 Type=oneshot
 WorkingDirectory=${INSTALL_DIR}
 ExecStartPre=/usr/bin/git pull --ff-only
+ExecStartPre=/usr/bin/ansible-galaxy collection install -r ${INSTALL_DIR}/infra/ansible/requirements.yml
 ExecStart=/usr/bin/ansible-playbook -i localhost, --connection=local \\
     ${INSTALL_DIR}/infra/ansible/site.yml --limit "\$(hostname)"
 EOF

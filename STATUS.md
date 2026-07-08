@@ -13,6 +13,28 @@ environment can't reach the Terraform registry, so provider-schema
 validation deliberately lives in CI — fmt and HCL parseability are
 checked before push). Proxmox remains an explicitly flagged assumption.
 
+## M1 — base-hardening role fleshed out: DONE (statically verified)
+
+`base-hardening` now does real work: unconditional unattended security
+updates, plus toggle-gated SSH lockdown (key-only, no root, sshd -t
+validated, reload handler) and UFW default-deny — lockout-shaped
+changes default OFF and are enabled per group in the inventory, because
+this role runs unattended on real machines via the pull loop (see
+defaults/main.yml for the reasoning). Collections the playbook needs
+are declared in `infra/ansible/requirements.yml`, installed by
+enroll.sh at enrollment and refreshed before every reconcile run, and
+installed in CI before ansible-lint.
+
+**Verification honesty note**: ansible-lint (production profile),
+playbook syntax-check, and yamllint all pass; ansible-lint is now a
+blocking CI step. Actual *execution* of the role could not be verified
+in the authoring environment (its system Python's cryptography module
+is broken in a way that kills every apt-module run — environmental,
+not a playbook defect). The first really-enrolled machine is the
+execution test; the enroll runbook instructs watching the first
+reconcile pass for exactly this reason. Runbooks added:
+`docs/runbooks/enroll-a-machine.md`, `decommission-a-machine.md`.
+
 ## M0 — repo scaffold & governance: DONE
 
 Scaffolding this repo: README, LICENSE (Unlicense), ROADMAP.md,
