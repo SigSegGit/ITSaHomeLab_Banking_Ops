@@ -1,0 +1,17 @@
+---
+# The baseline every enrolled machine gets before anyone decides what
+# it's actually for (site.yml's `hosts: all` play). Deliberately small
+# at M0/M1 — grows as the lab's actual security posture (M4) gets built
+# out; this is not meant to be a finished hardening baseline yet.
+
+- name: Ensure unattended package updates are enabled
+  package:
+    name: unattended-upgrades
+    state: present
+  when: ansible_facts['os_family'] == "Debian"
+
+- name: Confirm this host's identity for the reconcile log
+  debug:
+    msg: >-
+      {{ inventory_hostname }} reconciled at {{ ansible_date_time.iso8601 }}
+      (groups: {{ group_names | join(', ') }})

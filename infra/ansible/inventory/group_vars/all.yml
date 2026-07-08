@@ -1,0 +1,5 @@
+---
+# Applies to every machine in the lab, regardless of group — the
+# "every host gets this" list M4 (observability) will extend with a
+# monitoring-agent default. Kept empty until M1's base-hardening role
+# has real variables to expose.

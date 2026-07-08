@@ -1,0 +1,19 @@
+---
+# Entrypoint every machine runs against itself (see ARCHITECTURE.md —
+# ansible-pull, --connection=local, --limit "$(hostname)"). Add a play
+# per group as groups gain real roles in later milestones; keep the
+# `ungrouped` play first and minimal — it's every machine's fallback
+# baseline the moment it enrolls, before anyone decides what it's for.
+
+- name: Baseline every enrolled machine gets, regardless of role
+  hosts: all
+  become: true
+  roles:
+    - base-hardening
+
+# M2+: add a play per workload group here, e.g.:
+# - name: Kubernetes nodes
+#   hosts: k8s_node
+#   become: true
+#   roles:
+#     - k3s-node

@@ -1,0 +1,13 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+
+# SOPS age key must never land here regardless (see ARCHITECTURE.md) —
+# this is a belt-and-suspenders guard, not the actual control.
+age.key
+*.dec.yml
+
+.DS_Store
