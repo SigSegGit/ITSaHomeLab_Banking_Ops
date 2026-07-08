@@ -33,7 +33,10 @@ this loudly.
   timer (`homelab-reconcile.timer`, installed by
   `bootstrap/enroll.sh`) that does `git pull` against this repo, then
   `ansible-playbook -i localhost, --connection=local infra/ansible/site.yml
-  --limit "$(hostname)"`. The playbook is data-driven off
+  --limit "%H"` (`%H` is systemd's own hostname specifier, expanded by
+  systemd itself when it parses the unit — `ExecStart=` is not run
+  through a shell, so `$(hostname)` there silently fails to expand and
+  is a mistake worth remembering). The playbook is data-driven off
   `infra/ansible/inventory/host_vars/<hostname>.yml` /
   `group_vars/<group>.yml`, so "what does this machine become" is a
   matter of which group it's in, not a special-cased script.

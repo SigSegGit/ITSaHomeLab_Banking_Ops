@@ -2,6 +2,33 @@
 
 Read this first when resuming work cold.
 
+## First real machine enrolled: found and fixed a pull-loop bug: DONE
+
+`ITSaRevolution` (Raspberry Pi 4B, Raspberry Pi OS Lite 64-bit) was the
+first machine ever actually enrolled — and it immediately proved the
+static verification note in the M1 entry below right: `enroll.sh`'s
+generated `homelab-reconcile.service` failed every run with
+`ansible-playbook: error: argument -l/--limit: expected one argument`.
+
+Root cause: `ExecStart=` in a systemd unit is **not** run through a
+shell. `--limit "$(hostname)"` in the unit file is not a command
+substitution there — systemd parses `$(...)` as its own (invalid)
+environment-variable syntax, silently expands it to nothing, and the
+`--limit` flag ends up with no argument at all. This is exactly the
+"looked right, only fails on the thing that actually executes it"
+class of bug the Windows os-error-5 postmortem (see the ITSaNAS
+repo's STATUS.md) is named for — caught here on the very first real
+run instead of after the fact, because the enroll runbook explicitly
+says to watch `journalctl` on first boot.
+
+Fixed by using systemd's own hostname specifier (`%H`), which systemd
+expands itself with no shell involved — removes the bug class
+entirely rather than patching around it (e.g. wrapping in `bash -c`
+would have worked but adds a process and reintroduces the same
+escaping trap for the next person who edits that line).
+`ARCHITECTURE.md`'s prose showed the same broken snippet; fixed there
+too with an explanation, so a reader doesn't copy the mistake.
+
 ## M2 (partial) — Terraform skeleton + network design: IN PROGRESS
 
 `infra/terraform/` now has the real resource shapes (VMs cloud-init
