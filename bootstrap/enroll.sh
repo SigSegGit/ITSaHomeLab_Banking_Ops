@@ -57,7 +57,7 @@ WorkingDirectory=${INSTALL_DIR}
 ExecStartPre=/usr/bin/git pull --ff-only
 ExecStartPre=/usr/bin/ansible-galaxy collection install -r ${INSTALL_DIR}/infra/ansible/requirements.yml
 ExecStart=/usr/bin/ansible-playbook -i ${INSTALL_DIR}/infra/ansible/inventory/hosts.yml \\
-    ${INSTALL_DIR}/infra/ansible/site.yml --limit "${HOSTNAME}"
+    ${INSTALL_DIR}/infra/ansible/site.yml --limit "%H"
 EOF
 
 cat >/etc/systemd/system/homelab-reconcile.timer <<EOF

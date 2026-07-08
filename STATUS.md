@@ -2,6 +2,53 @@
 
 Read this first when resuming work cold.
 
+## Pull-loop bug, round two: a second broken fix landed, now actually fixed
+
+Between the first fix below and this entry, five commits landed on
+`main` outside this session (`586ae72`..`1fe8617`) — someone iterating
+directly against the real machines, most likely without seeing the
+first fix yet. Net result, the good and the bad:
+
+**Real problem they found that the first fix missed**: `-i localhost,`
+(what the first fix used) creates an ad hoc inventory containing a
+single host literally named `"localhost"`. `--limit "%H"` against that
+matches **zero hosts** — the reconcile run "succeeds" (exit 0) having
+done nothing at all. Silent no-op dressed as success is exactly the
+failure shape this repo keeps having to learn the hard way. Their
+fix — point `-i` at the real `infra/ansible/inventory/hosts.yml`, keyed
+by each machine's actual hostname — is correct and is kept.
+
+**What they broke on the way**: `--limit "${HOSTNAME}"` to fill in the
+current host's own name. Same root cause as the very first bug:
+`ExecStart=` isn't run through a shell, so this isn't bash's `$HOSTNAME`
+special variable — it's systemd's own environment-variable expansion,
+and nothing sets an actual `HOSTNAME` env var for this service. Verified
+directly: `env -i /bin/sh -c 'echo [${HOSTNAME}]'` prints `[]`. So this
+was *also* silently matching nothing — meaning the "MorePower" enrollment
+report claiming a flawless first run (`failed=0, changed=0`) almost
+certainly describes a run that touched zero hosts, not a verified
+baseline. Re-run it after this fix and expect `changed>0` the first
+time (unattended-upgrades gets installed, etc.) — `changed=0` on a
+*first* run is the same red flag `changed=0` was the reassuring sign for
+a *repeat* run.
+
+Fixed by going back to `%H` (systemd's own hostname specifier — no
+shell, no environment variable, no escaping trap for the next person to
+fall into) combined with the corrected `-i` from the second round.
+`ARCHITECTURE.md`'s "enroll now, assign a group later" paragraph is
+also updated: it doesn't survive contact with a name-scoped `--limit`
+(an unlisted host matches nothing, not a documented `ungrouped`
+fallback), so the doc now describes what's actually running — one
+commit adds a host directly to its group — instead of a design that
+didn't make it past the first three real machines.
+
+**Open item, not yet verified**: the Freebox VM's inventory key is
+`smallrevolt` — confirmed as its Linux *username*, but never confirmed
+as its actual `hostname`. If those differ, `--limit "%H"` silently
+matches zero hosts on that machine too, the same way as the last two
+bugs. Run `hostname` on it and confirm it prints `smallrevolt` exactly
+(case-sensitive) before trusting its reconcile logs.
+
 ## First real machine enrolled: found and fixed a pull-loop bug: DONE
 
 `ITSaRevolution` (Raspberry Pi 4B, Raspberry Pi OS Lite 64-bit) was the

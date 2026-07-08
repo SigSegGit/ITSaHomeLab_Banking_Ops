@@ -59,13 +59,16 @@ script's header comment). It:
 3. Installs and enables the systemd timer + service that repeats
    step 2 (`git pull`) and then runs `site.yml` scoped to its own
    hostname, forever, unattended.
-4. Does **not** need the machine added to any inventory *before*
-   enrolling — see `infra/ansible/inventory/hosts.yml`'s dynamic
-   grouping convention (M1): a host that isn't explicitly listed falls
-   into a minimal `ungrouped` baseline (updates, monitoring agent,
-   nothing banking-specific) until someone assigns it a real group in
-   a follow-up commit. Enrolling a machine and deciding what it's *for*
-   are two separate, independently-timed steps on purpose.
+4. Needs the machine added to `infra/ansible/inventory/hosts.yml`
+   (its hostname under `hosts:`, plus the matching group under
+   `children:`) either just before or just after running `enroll.sh` —
+   `--limit "%H"` (systemd's own hostname specifier) only matches a
+   host that's a literal key in the inventory, so "enroll now, assign a
+   group later" (the original M1 design) doesn't work with a
+   name-scoped `--limit`: an unlisted host matches nothing and the
+   reconcile run silently does zero work rather than falling back to
+   any baseline. In practice: one commit adds the hostname (see the
+   three real machines already there for the pattern).
 
 ## What never goes in this repo
 
