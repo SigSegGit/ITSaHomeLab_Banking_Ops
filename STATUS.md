@@ -7,6 +7,40 @@ hours and a lot of owner frustration to correctly establish tonight;
 don't let this file's older, pre-correction entries below drift you
 back toward the wrong framing ("generic homelab weekend resilience").
 
+## ITSaRevolution's dpkg lockup: real root cause found, fixed for real — SD card health still unconfirmed
+
+The owner diagnosed the actual mechanism behind the repeated dpkg
+corruption chased earlier tonight: `python3`'s postinst runs
+`py3clean` via a generic hook system
+(`/usr/share/python3/runtime.d/*.rtupdate`), and one specific hook —
+`linux-kbuild-6.18.34+rpt.rtupdate` — calls `dpkg -L` on that package
+to enumerate its files. That package's own metadata in
+`/var/lib/dpkg/info/` was corrupted/missing, so the hook threw an
+unhandled Python exception and took the entire `dpkg --configure -a`
+run down with it (`python3` itself failing to configure, exit status
+4) — not a problem with the package actually being installed, a
+crash in an unrelated package's cleanup hook.
+
+**Fix**: `sudo mv /usr/share/python3/runtime.d/linux-kbuild-6.18.34+rpt.rtupdate /tmp/`
+(isolate, don't delete) then `sudo dpkg --configure -a`. Confirmed:
+`apt-get install -f` now reports a clean state, and
+`homelab-reconcile.service` completed a full run with `failed=0` —
+also incidentally confirms the vault-password-provider design from
+the Patroni work above works correctly for a non-`patroni_cluster`
+host (no real vault password ever placed on this machine, and nothing
+broke).
+
+**Still true, not superseded by this fix**: the `dmesg`-confirmed
+`EXT4-fs error ... bad block bitmap checksum` on block groups
+240/368/464 (see the entry further below) is a *different* bug from
+the same suspect hardware — real kernel-level filesystem corruption,
+not a dpkg-hook crash. This fix resolves one specific symptom; it does
+not confirm the SD card itself is healthy. `ITSaRevolution` stays out
+of `banking_app_nodes`/`patroni_db_nodes` per CLAUDE.md's mission
+section until someone actually checks the card (read-only `e2fsck -n`
+or a fresh card) — a clean `dpkg --configure -a` on its own isn't that
+confirmation, however good the diagnostic work behind it was.
+
 ## Patroni HA PostgreSQL cluster: built and statically verified, NOT yet deployed to real machines
 
 Real deliverable for the mission (see CLAUDE.md). Built tonight,
