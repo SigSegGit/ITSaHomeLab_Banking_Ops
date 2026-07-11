@@ -1,0 +1,23 @@
+---
+# GCP e2-micro burst node (infra/terraform-gcp) — stands in for
+# ITSaRevolution in banking_app_nodes while the Pi's SD card is
+# suspect (see STATUS.md). Headless cloud VM: no console keyboard
+# layout to set, unlike the physical machines.
+
+# Same key as ITSaRevolution.yml / smallrevolt.yml — the Terraform
+# module also grants this key at instance-creation time via the
+# `ssh-keys` metadata field, so this is belt-and-suspenders (also lets
+# key rotation happen the same way as every other host: a commit here,
+# not a manual step on the box).
+base_hardening_authorized_keys:
+  - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC061hvzLwMkqaYC7JQ8mJdlf8e1t0sjTExnC3WreLEGbWhW9PdJO5ozoZgLOVKQdqUvnwsVe/27ns0r/15RYPQUlc79BV+SJBB0nIEckqd1woilH/UYx5sLNFSUMxsTB/mrETy2U7SjunWOMcW1HlIRUzAgFDD880YgLbVz3bYJyi+QQcUvjSvvLMeck3T+io1ScFyXjnnBB0Jl2Rja2M04/yngNpSR6Rxxtn3IR/gF829mEma7JfQYPjovLwGEnu8iDxuQYCc85Kz8xpOICIBIfFfokvRlcPt8cPw/75hy6Gdq2pFv0nbweuei6wfyAPEDTlw1tDr4SizXbmWdknAnUXdn76SqqQKGfvvSji/Kzx3g8xrCOGXAq0IB3VNrsc4ULwMyMtS/RZ7mID72c1pSK5jOp1UJh1nYGsSO4yC+JUtCtQGCDLV3kU6TngUq+Hb1mh/rW61//YQ2kIBps1JULKq2jvcvhsFlOeUzWIBv8wj2JZv6LktkWxqAMMQ+BM= sigseg@SIGSEG-DELL"
+
+# This node's own public IP is the reachability story (no SSH tunnel
+# needed, unlike ITSaRevolution/smallrevolt) — safe to open the
+# firewall as soon as key login is verified, since there's no risk of
+# losing the only access path the way there would be on a
+# single-network-path home machine.
+base_hardening_allowed_tcp_ports:
+  - 22
+  - 8000  # ledger-service
+  - 9100  # node-exporter

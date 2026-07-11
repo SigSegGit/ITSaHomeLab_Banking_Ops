@@ -8,3 +8,16 @@ monitoring_scrape_targets:
   - ITSaRevolution
   - smallrevolt
   - MorePower
+
+# Separate from monitoring_scrape_targets on purpose: LAN hosts are
+# reachable at "<name>.local:9100" via mDNS, but a cloud node
+# (infra/terraform-gcp) has no mDNS name and a static IP that isn't
+# known until `terraform apply` runs — so each entry here carries its
+# own full address instead of assuming a ".local" suffix. Empty until
+# a real node's address is filled in (e.g. after reserving a static IP
+# for gcp-burst-1) — same "add it in the commit that adds real
+# monitoring for it" discipline as the list above.
+monitoring_cloud_scrape_targets: []
+# Example once the GCP node's static IP is known:
+#   - name: gcp-burst-1
+#     address: "203.0.113.10:9100"

@@ -15,3 +15,8 @@ scrape_configs:
         labels:
           instance: "{{ target }}"
 {% endfor %}
+{% for target in monitoring_cloud_scrape_targets %}
+      - targets: ["{{ target.address }}"]
+        labels:
+          instance: "{{ target.name }}"
+{% endfor %}

@@ -1,0 +1,14 @@
+# Copy to terraform.tfvars (gitignored) and fill in. Auth is NOT here:
+# `gcloud auth application-default login` first — see README.md.
+
+project_id         = "my-homelab-project-id" # project ID, not display name
+billing_account_id = "XXXXXX-XXXXXX-XXXXXX"
+ssh_public_key      = "ssh-rsa AAAA...your-public-key... user@host"
+ssh_username        = "sigseg"
+
+# Defaults usually fine as-is:
+# region             = "europe-west1"
+# zone               = "europe-west1-b"
+# instance_name      = "gcp-burst-1"
+# machine_type       = "e2-micro"
+# budget_amount_usd  = 10

@@ -56,21 +56,92 @@ real. Two real bugs surfaced on the other two:
 
 ## Weekend-away resilience push (owner unreachable until after interview): IN PROGRESS
 
-Owner is leaving home for the weekend; `MorePower` (laptop VM) goes
-offline entirely when they do. `ITSaRevolution` and `smallrevolt` are
-the only two reachable machines (SSH port-forwarded from the router:
-22101→22 and 22102→22) for the whole weekend. GCP still needs setting
-up before Monday. A dedicated Claude Code session is running this
-work; see `CLAUDE.md` for the standing context and current real-world
-state, and the session's own conversation for the live task list.
+Owner is leaving home for the weekend; the real demo (this whole repo
+exists for a job interview Monday) needs to work reliably without them
+physically present. Correction to an earlier assumption in this file:
+`MorePower` (the owner's laptop VM) does **not** go fully offline when
+they leave — the laptop travels with them and keeps running, it just
+loses LAN connectivity to home (no more `*.local` mDNS, no direct
+reach to smallrevolt/ITSaRevolution's HTTP ports). See "Reaching
+everything while away" below for how that's actually handled.
 
-Done so far: `apps/ledger-service/docker-compose.yml` now has
-`restart: unless-stopped` on both services plus a real healthcheck on
-the `ledger` service (previously: neither container would come back on
-its own if a host rebooted while unattended). Verified: `docker
-compose config` parses the restart/healthcheck blocks correctly;
-yamllint clean. Full build+run verification happens in CI same as
-always (this sandbox can't reach Docker Hub).
+### Quick reference: reaching everything while away
+
+Home's external address: `ngas.fr` (DDNS, points at the router). Only
+SSH is port-forwarded from the router — 22101→ITSaRevolution:22,
+22102→smallrevolt:22. Nothing else (Grafana/Prometheus/ledger-service
+ports) is forwarded, so reaching them from outside the LAN means
+tunneling over the SSH that already works:
+
+```bash
+# Grafana + Prometheus (both live on smallrevolt) — run from anywhere,
+# including MorePower once it's off the home LAN
+ssh -p 22102 -L 3000:localhost:3000 -L 9090:localhost:9090 -N smallrevolt@ngas.fr
+# then browse http://localhost:3000 locally
+
+# ITSaRevolution (Pi) — SSH only right now, see below for why
+ssh -p 22101 -N itsarevolution@ngas.fr
+```
+
+### ITSaRevolution (Pi): confirmed failing SD card, pulled from banking_app_nodes
+
+First real reconcile attempts on the Pi surfaced repeated, unrelated
+file corruption: `/etc/gitconfig`, then `/root/.gitconfig`, then two
+different `dpkg` package-list files (`gir1.2-girepository-2.0:arm64`,
+`python3-dbus`). Patching each one let the reconcile progress further
+each time, until `dmesg` showed the actual root cause for real:
+
+```
+EXT4-fs error (device mmcblk0p2): ext4_validate_block_bitmap:423: bg 240/368/464: bad block bitmap checksum
+EXT4-fs (mmcblk0p2): error count since last fsck: 4
+```
+
+A full `fsck` (forced via `/forcefsck` + reboot) did **not** clear
+these — the identical block groups showed the identical corruption
+immediately after remount, which is the signature of physically
+failing SD card sectors, not a software-repairable filesystem issue.
+The reboot also cost real data: `/opt/itsahomelab-banking-ops` (the
+cloned repo) was gone afterward, most likely ext4's own orphan-inode
+cleanup reclaiming files it considered inconsistent.
+
+Decision: pulled `ITSaRevolution` out of `banking_app_nodes`
+(`infra/ansible/inventory/hosts.yml`) rather than keep retrying a
+~58MB/23-package Docker install onto degrading storage every 5 minutes
+for a whole unattended weekend — the risk of worsening the corruption
+or bricking the boot outweighed the value, especially with nobody home
+to recover it. The Pi keeps `base-hardening` + `node-exporter`
+(smaller footprint, and node-exporter's own dpkg blocker is now
+cleared) so it still shows up in Grafana, but it's not carrying the
+ledger-service this weekend. Re-add it once someone can check the SD
+card by hand (health check or replacement) — this is a real residual
+risk flagged, not silently dropped.
+
+### GCP burst node stands in for the Pi in the two-node demo
+
+`infra/terraform-gcp/` is a new, real (not skeleton) Terraform module:
+a `google_compute_instance` (e2-micro), firewall rules for SSH/8000/
+9100, and a `google_billing_budget` so an unattended weekend VM can't
+run up a surprise bill. Same boot-to-enrolled pattern as the Proxmox
+layer — it curls `bootstrap/enroll.sh` on first boot and self-enrolls.
+This sandbox cannot `terraform apply` it (no GCP credentials, registry
+blocked by the proxy) — see the module's README for the exact manual
+steps the owner runs. `apps/ledger-service/run-demo.sh` is now
+env-driven (`DEMO_NODES=...`) instead of hardcoding
+`ITSaRevolution.local`, so the load-ramp demo runs against MorePower +
+the GCP node without depending on home network reachability at all.
+
+Done so far, in addition to the above: `apps/ledger-service/docker-compose.yml`
+now has `restart: unless-stopped` on both services plus a real
+healthcheck on the `ledger` service (previously: neither container
+would come back on its own if a host rebooted while unattended).
+Verified: `docker compose config` parses the restart/healthcheck
+blocks correctly; yamllint clean. Full build+run verification happens
+in CI same as always (this sandbox can't reach Docker Hub). A public
+SSH key (same one already on `ITSaRevolution`) is now deployed via
+`host_vars/smallrevolt.yml` too, so it's no longer the one machine
+still on password auth — `base_hardening_ssh_lockdown` stays off on
+both until key-based login is verified live with a second open
+session, per this repo's standing lockout discipline.
 
 ## M3's backup/restore half of DR: DONE (the failover half is a real open decision, not solved)
 
