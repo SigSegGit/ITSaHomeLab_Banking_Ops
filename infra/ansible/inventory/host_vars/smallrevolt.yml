@@ -1,0 +1,25 @@
+---
+# The always-on VM on the Freebox router — internet-facing via SSH
+# port-forward (22102 -> 22) for the whole weekend, same as
+# ITSaRevolution. Deploying a key here so it stops being the one
+# machine still on password auth; base_hardening_ssh_lockdown stays
+# off until key-based login is verified live (see CLAUDE.md).
+
+base_hardening_timezone: Europe/Paris
+base_hardening_console_keyboard_layout: fr
+
+# Same key as ITSaRevolution.yml — same owner, same machine class.
+# Public key only — see docs/runbooks/enroll-a-machine.md.
+base_hardening_authorized_keys:
+  - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC061hvzLwMkqaYC7JQ8mJdlf8e1t0sjTExnC3WreLEGbWhW9PdJO5ozoZgLOVKQdqUvnwsVe/27ns0r/15RYPQUlc79BV+SJBB0nIEckqd1woilH/UYx5sLNFSUMxsTB/mrETy2U7SjunWOMcW1HlIRUzAgFDD880YgLbVz3bYJyi+QQcUvjSvvLMeck3T+io1ScFyXjnnBB0Jl2Rja2M04/yngNpSR6Rxxtn3IR/gF829mEma7JfQYPjovLwGEnu8iDxuQYCc85Kz8xpOICIBIfFfokvRlcPt8cPw/75hy6Gdq2pFv0nbweuei6wfyAPEDTlw1tDr4SizXbmWdknAnUXdn76SqqQKGfvvSji/Kzx3g8xrCOGXAq0IB3VNrsc4ULwMyMtS/RZ7mID72c1pSK5jOp1UJh1nYGsSO4yC+JUtCtQGCDLV3kU6TngUq+Hb1mh/rW61//YQ2kIBps1JULKq2jvcvhsFlOeUzWIBv8wj2JZv6LktkWxqAMMQ+BM= sigseg@SIGSEG-DELL"
+
+# Grafana/Prometheus (M4) and this host's own node-exporter need to
+# stay reachable from the LAN once the firewall is enabled — added
+# ahead of time so flipping base_hardening_firewall on later doesn't
+# silently blackhole monitoring. Firewall itself stays off until
+# that's actually turned on.
+base_hardening_allowed_tcp_ports:
+  - 22
+  - 3000  # Grafana
+  - 9090  # Prometheus
+  - 9100  # node-exporter (this host's own)
