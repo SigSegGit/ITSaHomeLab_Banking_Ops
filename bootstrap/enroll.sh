@@ -34,6 +34,12 @@ else
     exit 1
 fi
 
+echo "==> marking ${INSTALL_DIR} as a safe.directory for root's git"
+# Not --add: this script only ever needs one directory marked safe, and
+# a plain assignment stays idempotent across re-runs (no duplicate
+# lines piling up in /etc/gitconfig on repeat enrollment).
+git config --system safe.directory "${INSTALL_DIR}"
+
 echo "==> cloning ${REPO_URL} to ${INSTALL_DIR}"
 if [ -d "${INSTALL_DIR}/.git" ]; then
     git -C "${INSTALL_DIR}" pull --ff-only

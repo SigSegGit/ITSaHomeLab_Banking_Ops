@@ -2,6 +2,58 @@
 
 Read this first when resuming work cold.
 
+## First real reconcile on all 3 machines: 2 real bugs found, fixed; 1 needs owner action
+
+The owner ran a reconcile on all three real machines for the first
+time. `smallrevolt` (M4 monitoring) genuinely works — Prometheus and
+Grafana confirmed `active (running)`, healthy, on real hardware, for
+real. Two real bugs surfaced on the other two:
+
+1. **`banking-app` failed on `MorePower`**: `No package matching
+   'docker-compose-v2' is available`. This package name was verified
+   against Ubuntu's archive (this sandbox), never against Debian 13
+   (Trixie, `MorePower`'s actual OS) — a real verification gap.
+   Bundling `docker.io` + `docker-compose-v2` + `rsync` in one
+   `ansible.builtin.package` task also meant the one failure blocked
+   Docker itself from installing at all (`docker: command not found`).
+   Fixed: split into separate tasks, added `update_cache: true` (the
+   most likely actual cause — a freshly-imaged machine's apt cache
+   can be stale until something forces a refresh), and added a
+   fallback that downloads the official `docker/compose` v2 plugin
+   binary directly if the distro package genuinely isn't resolvable.
+   **Honesty note**: this session's own environment blocks GitHub
+   release downloads outside its authorized repo scope (a deliberate
+   proxy restriction, confirmed via the exact same
+   `github access to this repository is not enabled` message the
+   `add_repo` tool would show), so the fallback binary URL could not
+   be verified from here. The primary fix (`update_cache: true` on the
+   real distro package) is standard, well-understood Ansible/apt
+   behavior and didn't need external verification.
+
+2. **`ITSaRevolution` (the Pi) reconcile fails entirely**:
+   `fatal: bad config line 1 in file /etc/gitconfig`, blocking every
+   `git pull` run as root (including the systemd service's own
+   `ExecStartPre`). Root cause suspected: a hand-run
+   `git config --system --add safe.directory ...` (correct instinct,
+   likely malformed syntax) corrupted the system-wide gitconfig at
+   some point outside this repo's own tooling — `enroll.sh` never set
+   this itself. **This needs the owner's hands on the actual machine**
+   (this session has no access to it) — fixed here only by adding a
+   correct, idempotent `git config --system safe.directory
+   "${INSTALL_DIR}"` to `enroll.sh` itself, so re-running enrollment
+   (after the owner clears the corrupted file) sets it properly and
+   this class of problem doesn't recur, including for the GCP node
+   that still needs enrolling.
+
+3. **Grafana dashboard "Failed to fetch" on `smallrevolt`**: the
+   Prometheus datasource provisioning never set an explicit `uid`, so
+   Grafana auto-generated a random one that doesn't match the literal
+   `"Prometheus"` UID the dashboard JSON's panels reference. Fixed:
+   explicit `uid: Prometheus` in the datasource provisioning file —
+   Grafana's provisioning reconciles by `name` on reload, so the next
+   reconcile + grafana-server restart should repoint the existing
+   datasource to the correct UID without needing a fresh install.
+
 ## Weekend-away resilience push (owner unreachable until after interview): IN PROGRESS
 
 Owner is leaving home for the weekend; `MorePower` (laptop VM) goes

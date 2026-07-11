@@ -7,14 +7,47 @@
 # so there's no reason to add a second external repo where one isn't
 # needed).
 
-- name: Install Docker, the compose plugin, and rsync
+- name: Install Docker and rsync
   ansible.builtin.package:
     name:
       - docker.io
-      - docker-compose-v2
       - rsync
     state: present
+    update_cache: true
   when: ansible_facts['os_family'] == "Debian"
+
+# Split from the task above, and tried independently: found running
+# this for real on Debian 13 (Trixie) that docker-compose-v2 isn't
+# resolvable there (bundling it with docker.io/rsync in one task meant
+# that single failure blocked Docker itself from installing at all).
+# `update_cache: true` alone might have been the whole story on a
+# freshly-imaged machine that never ran `apt update` — kept anyway,
+# since a genuinely absent package needs the fallback regardless.
+- name: Try installing the compose plugin from the distro's own archive
+  ansible.builtin.package:
+    name: docker-compose-v2
+    state: present
+    update_cache: true
+  when: ansible_facts['os_family'] == "Debian"
+  register: compose_apt_install
+  ignore_errors: true
+
+- name: Fall back to Docker's official compose plugin binary
+  when: compose_apt_install is failed
+  block:
+    - name: Ensure a Docker CLI plugins directory exists
+      ansible.builtin.file:
+        path: /usr/local/lib/docker/cli-plugins
+        state: directory
+        mode: "0755"
+
+    - name: Download the docker compose v2 plugin binary
+      ansible.builtin.get_url:
+        url: >-
+          https://github.com/docker/compose/releases/download/v2.32.1/docker-compose-linux-{{
+          'aarch64' if ansible_architecture == 'aarch64' else 'x86_64' }}
+        dest: /usr/local/lib/docker/cli-plugins/docker-compose
+        mode: "0755"
 
 - name: Ensure Docker is enabled and running
   ansible.builtin.service:
