@@ -1,5 +1,36 @@
 # Project memory for Claude Code sessions
 
+## THE MISSION — read this first, it overrides any other framing
+
+This repo exists to demonstrate **Database Reliability Engineer skill**
+for a real interview at **Revolut, Monday**. The specific things that
+must be demonstrable, live, in ~10-12 minutes:
+
+1. **Patroni-managed PostgreSQL HA** — a real cluster (leader +
+   replica(s)), `patronictl list` showing streaming replication.
+2. **Automatic failover** — kill the leader under live app load, watch
+   Patroni promote a replica automatically, near-zero application
+   errors during the switchover.
+3. **Elastic ramp-up/down via IaC** — add/remove a replica node
+   (Terraform + Ansible), watch it join/leave the cluster cleanly (no
+   orphaned replication slots).
+4. **Real performance monitoring** — Prometheus + Grafana showing
+   replication lag, leader/replica role, and app throughput, visible
+   *during* the failover/ramp demo, not just as static screenshots.
+
+Deliberate scope cuts made under time pressure (see STATUS.md for
+when/why) — do not silently re-expand these without checking with the
+owner first: Patroni's own built-in Raft DCS instead of a separate
+etcd quorum; the existing `apps/ledger-service` reused as the
+transactional app instead of a new bespoke app; 2 nodes (MorePower +
+a GCP burst node) rather than a wider mesh, with `ITSaRevolution` (Pi)
+added back only once its SD card is confirmed stable (see the
+`hosts.yml` comment — it was pulled out after confirmed hardware
+corruption).
+
+If you find yourself building anything that isn't in service of the 4
+numbered points above, stop and check it's actually needed.
+
 Read `STATUS.md` first, always — it's the running, honest log of what's
 actually been built and verified vs. what's only statically checked.
 Then `ARCHITECTURE.md` (the pull-model design and its reasoning) and
