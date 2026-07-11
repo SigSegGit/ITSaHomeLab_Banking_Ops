@@ -2,6 +2,24 @@
 
 Read this first when resuming work cold.
 
+## Weekend-away resilience push (owner unreachable until after interview): IN PROGRESS
+
+Owner is leaving home for the weekend; `MorePower` (laptop VM) goes
+offline entirely when they do. `ITSaRevolution` and `smallrevolt` are
+the only two reachable machines (SSH port-forwarded from the router:
+22101→22 and 22102→22) for the whole weekend. GCP still needs setting
+up before Monday. A dedicated Claude Code session is running this
+work; see `CLAUDE.md` for the standing context and current real-world
+state, and the session's own conversation for the live task list.
+
+Done so far: `apps/ledger-service/docker-compose.yml` now has
+`restart: unless-stopped` on both services plus a real healthcheck on
+the `ledger` service (previously: neither container would come back on
+its own if a host rebooted while unattended). Verified: `docker
+compose config` parses the restart/healthcheck blocks correctly;
+yamllint clean. Full build+run verification happens in CI same as
+always (this sandbox can't reach Docker Hub).
+
 ## M3's backup/restore half of DR: DONE (the failover half is a real open decision, not solved)
 
 `apps/ledger-service/backup.sh` / `restore.sh`: `pg_dump --clean

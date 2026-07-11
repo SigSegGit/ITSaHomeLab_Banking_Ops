@@ -1,6 +1,7 @@
 services:
   db:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ledger
       POSTGRES_PASSWORD: ledger
@@ -15,6 +16,7 @@ services:
 
   ledger:
     build: .
+    restart: unless-stopped
     environment:
       DATABASE_URL: postgresql+psycopg2://ledger:ledger@db:5432/ledger
     ports:
@@ -22,6 +24,12 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
 volumes:
   ledger-db-data:
