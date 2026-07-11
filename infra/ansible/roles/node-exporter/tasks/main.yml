@@ -5,18 +5,35 @@
 # manual binary download, no separate systemd unit to author, it's
 # already wired up by the package itself.
 
+# Not fatal: a host-local package manager problem (e.g. dpkg database
+# corruption unrelated to this role, seen for real on ITSaRevolution)
+# shouldn't take metrics down for the rest of the run — this is a
+# nice-to-have relative to the banking workload, which now runs in an
+# earlier play specifically so it's unaffected either way (see site.yml).
 - name: Install prometheus-node-exporter
   ansible.builtin.package:
     name: prometheus-node-exporter
     state: present
   when: ansible_facts['os_family'] == "Debian"
+  register: node_exporter_install
+  ignore_errors: true
+
+- name: Warn if prometheus-node-exporter failed to install
+  ansible.builtin.debug:
+    msg: >-
+      prometheus-node-exporter install failed on this host — metrics for
+      it will be missing from Grafana until this is fixed by hand. See
+      the task result above for the underlying package-manager error.
+  when: node_exporter_install is failed
 
 - name: Ensure prometheus-node-exporter is enabled and running
   ansible.builtin.service:
     name: prometheus-node-exporter
     state: started
     enabled: true
-  when: ansible_facts['os_family'] == "Debian"
+  when: >-
+    ansible_facts['os_family'] == "Debian" and
+    node_exporter_install is succeeded
 
 # mDNS so the monitoring host can reach this machine as
 # "<hostname>.local" without anyone hand-tracking IP addresses —

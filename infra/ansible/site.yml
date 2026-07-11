@@ -10,6 +10,22 @@
   roles:
     - base-hardening
 
+# Deliberately runs right after base-hardening, ahead of metrics/monitoring:
+# a host that fails a task in one play is excluded from every later play in
+# the same ansible-playbook run, so the actual weekend deliverable (the
+# banking workload) must not sit behind node-exporter/monitoring-stack,
+# which are nice-to-have and have already been seen to fail from unrelated
+# host-local package corruption (found running this for real on
+# ITSaRevolution: a corrupted dpkg list file for an unrelated package
+# blocked node-exporter's install, which then silently skipped the
+# banking-app play for that host on every cycle until this reorder).
+- name: The banking workload (M3) — apps/ledger-service via docker
+    compose, on inventory's `banking_app_nodes` group
+  hosts: banking_app_nodes
+  become: true
+  roles:
+    - banking-app
+
 - name: Metrics agent every machine exports, so heterogeneous hardware
     is visible in one place (M4)
   hosts: all
@@ -24,13 +40,6 @@
   become: true
   roles:
     - monitoring-stack
-
-- name: The banking workload (M3) — apps/ledger-service via docker
-    compose, on inventory's `banking_app_nodes` group
-  hosts: banking_app_nodes
-  become: true
-  roles:
-    - banking-app
 
 # M2+: add a play per workload group here, e.g.:
 # - name: Kubernetes nodes
