@@ -1,0 +1,4 @@
+---
+patroni_venv: /opt/patroni-venv
+patroni_config_path: /etc/patroni/patroni.yml
+patroni_pg_user: postgres

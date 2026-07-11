@@ -1,0 +1,7 @@
+---
+# Empty by default (no-op) — set via group_vars for whichever hosts
+# actually need it (patroni_db_nodes + patroni_witness, not every
+# machine in the lab). Auth key comes from vault, never plaintext.
+tailscale_enabled: false
+tailscale_auth_key: ""
+tailscale_tailnet_domain: ""

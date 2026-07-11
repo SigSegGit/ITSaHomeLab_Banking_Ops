@@ -1,0 +1,3 @@
+---
+patroni_venv: /opt/patroni-venv
+patroni_raft_witness_config_path: /etc/patroni/raft-witness.yml

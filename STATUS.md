@@ -1,6 +1,83 @@
 # Status
 
-Read this first when resuming work cold.
+Read this first when resuming work cold. Read `CLAUDE.md`'s "THE
+MISSION" section *before* this file — this repo's actual purpose
+(Patroni HA PostgreSQL demo for a Revolut DBRE interview) took several
+hours and a lot of owner frustration to correctly establish tonight;
+don't let this file's older, pre-correction entries below drift you
+back toward the wrong framing ("generic homelab weekend resilience").
+
+## Patroni HA PostgreSQL cluster: built and statically verified, NOT yet deployed to real machines
+
+Real deliverable for the mission (see CLAUDE.md). Built tonight,
+nothing applied to real hardware yet — that's the explicit next step,
+blocked on two things only the owner can provide (below).
+
+**What exists**: `infra/ansible/roles/tailscale/` (stable NAT-traversing
+addressing — needed because `MorePower` roams and can't otherwise be a
+reachable Patroni/raft peer), `infra/ansible/roles/patroni-postgres/`
+(PostgreSQL 16 via PGDG + Patroni via pip venv, drops Debian's
+auto-created default cluster since Patroni owns the data dir),
+`infra/ansible/roles/patroni-raft-witness/` (a Postgres-less
+`patroni_raft_controller` on `smallrevolt`, purely for raft quorum —
+2 Postgres nodes alone can't lose either one without losing majority,
+which would break automatic failover exactly when it needs to prove
+itself). `apps/ledger-service` now connects via a multi-host libpq DSN
+(`host=nodeA,nodeB&target_session_attrs=read-write`) instead of a
+standalone `db` container — psycopg2/libpq itself finds whichever node
+is currently primary, no HAProxy/pgbouncer needed for that part.
+Credentials are `ansible-vault`-encrypted in
+`group_vars/patroni_cluster/vault.yml` (3 real, randomly-generated
+passwords; the Tailscale auth key is still a placeholder — see below).
+`bootstrap/enroll.sh` now deploys a vault-password-provider script on
+every machine so `--vault-password-file` never breaks a host that
+doesn't actually need it (confirmed: `ansible-playbook --syntax-check`
+and `ansible-lint` both pass with zero vault password available at
+all, matching CI's exact invocation).
+
+**Verified for real, not just linted**: rendered `patroni.yml` against
+Patroni's own `--validate-config` (installed in a scratch venv) —
+schema-valid; the only remaining complaint against a real hostname was
+"is not reachable" on the raft port, which is *expected* with no real
+node listening yet, not a template bug. Rendered the ledger-service
+`.env`'s DSN and built a real SQLAlchemy engine from it successfully.
+`docker compose config` accepts the new compose file. Full
+yamllint/ansible-lint/syntax-check suite passes, matching CI exactly.
+
+**Explicitly not done**: no `patronictl list` has ever run for real, no
+failover has been demonstrated, no replica ramp-up/down via
+Terraform+Ansible has happened, no Grafana dashboard for Patroni/
+Postgres metrics exists yet (no `postgres_exporter` role either).
+
+**Two hard blockers, owner-only**:
+1. `tailscale_tailnet_domain` (`group_vars/patroni_cluster/vars.yml`)
+   is deliberately an empty string — needs the owner's real Tailscale
+   tailnet MagicDNS suffix. The `tailscale` role asserts and refuses to
+   run rather than guess wrong and silently misconfigure every node's
+   address.
+2. `tailscale_auth_key` in the vault is still a placeholder string —
+   needs a real key from the Tailscale admin console.
+
+Also still open: `infra/terraform-gcp/` is real and ready but has never
+been `terraform apply`'d (needs the owner's GCP project ID + billing
+account ID, see that directory's README.md).
+
+## Correction: this repo's actual mission was mis-framed for hours tonight
+
+Earlier tonight, this session (and the entries immediately below this
+one) treated the repo as a generic "make the homelab resilient for the
+weekend" exercise — chasing SD card corruption, SSH tunnels, and GCP as
+a vague nice-to-have. The owner had to forcefully correct this multiple
+times, increasingly frustrated, before the real mission (Patroni HA
+PostgreSQL demo for a Database Reliability Engineer interview at
+Revolut, Monday) was actually established. `CLAUDE.md` now has this
+locked in a "THE MISSION" section at the top specifically so it
+survives context compaction and isn't rediscovered the hard way again.
+The entries below are kept for their genuine real-hardware findings
+(the SD card corruption on `ITSaRevolution` is real and still relevant
+— it's why that machine isn't in the Patroni cluster), but their
+framing of *why* any of this matters should be read through the lens
+of the mission section above, not taken at face value.
 
 ## First real reconcile on all 3 machines: 2 real bugs found, fixed; 1 needs owner action
 

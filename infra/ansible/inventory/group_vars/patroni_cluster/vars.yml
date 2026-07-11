@@ -1,0 +1,13 @@
+---
+# Shared by every node in the Patroni cluster (patroni_db_nodes +
+# patroni_witness) via hosts.yml's patroni_cluster parent group.
+
+tailscale_enabled: true
+
+# REQUIRED, no safe default: this is the owner's real Tailscale
+# tailnet's MagicDNS suffix (visible in the Tailscale admin console,
+# e.g. "tailnet-name.ts.net" or a custom domain). Left empty
+# deliberately — a wrong guess here would silently misconfigure every
+# node's advertise address, which is a much worse failure mode than
+# the loud, obvious one the tailscale role's assert produces instead.
+tailscale_tailnet_domain: ""

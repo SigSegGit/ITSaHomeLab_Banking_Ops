@@ -1,0 +1,6 @@
+---
+- name: Restart patroni-raft-witness
+  ansible.builtin.systemd:
+    name: patroni-raft-witness
+    state: restarted
+    daemon_reload: true

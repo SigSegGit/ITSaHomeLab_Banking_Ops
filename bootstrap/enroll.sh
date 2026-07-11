@@ -50,6 +50,22 @@ fi
 echo "==> installing required ansible collections"
 ansible-galaxy collection install -r "${INSTALL_DIR}/infra/ansible/requirements.yml"
 
+echo "==> installing the ansible-vault password provider"
+# Installed on every machine (so `--vault-password-file` always points
+# at something that exists, which ansible-playbook checks up front
+# regardless of whether this particular host's group_vars actually
+# contain any vaulted content) but only prints a real password if
+# /etc/itsahomelab-banking-ops/vault-pass has been dropped there by
+# hand, out of band — same "secrets never come from git pull" pattern
+# as the SOPS age.key below. Hosts outside patroni_cluster never
+# trigger a real decrypt, so this being empty for them is harmless.
+mkdir -p /etc/itsahomelab-banking-ops
+cat >/etc/itsahomelab-banking-ops/vault-pass.sh <<'VAULTEOF'
+#!/bin/sh
+[ -f /etc/itsahomelab-banking-ops/vault-pass ] && cat /etc/itsahomelab-banking-ops/vault-pass
+VAULTEOF
+chmod 0700 /etc/itsahomelab-banking-ops/vault-pass.sh
+
 echo "==> installing the reconcile service + timer"
 cat >/etc/systemd/system/homelab-reconcile.service <<EOF
 [Unit]
@@ -63,6 +79,7 @@ WorkingDirectory=${INSTALL_DIR}
 ExecStartPre=/usr/bin/git pull --ff-only
 ExecStartPre=/usr/bin/ansible-galaxy collection install -r ${INSTALL_DIR}/infra/ansible/requirements.yml
 ExecStart=/usr/bin/ansible-playbook -i ${INSTALL_DIR}/infra/ansible/inventory/hosts.yml \\
+    --vault-password-file=/etc/itsahomelab-banking-ops/vault-pass.sh \\
     ${INSTALL_DIR}/infra/ansible/site.yml --limit "%H"
 EOF
 
@@ -90,3 +107,9 @@ echo "    follow it with: journalctl -u homelab-reconcile.service -f"
 # host needs to decrypt SOPS-encrypted values, drop the lab's age key
 # at /etc/itsahomelab-banking-ops/age.key by hand (out of band) before the
 # first reconcile run touches anything that needs it.
+#
+# If this host is in patroni_cluster (MorePower, gcp-burst-1,
+# smallrevolt), it also needs the ansible-vault password dropped at
+# /etc/itsahomelab-banking-ops/vault-pass (mode 0600, root-only) before
+# its first reconcile — otherwise the patroni-postgres/tailscale roles
+# fail loudly (not silently) on that host.

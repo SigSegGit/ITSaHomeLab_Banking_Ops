@@ -10,10 +10,34 @@
   roles:
     - base-hardening
 
-# Deliberately runs right after base-hardening, ahead of metrics/monitoring:
-# a host that fails a task in one play is excluded from every later play in
-# the same ansible-playbook run, so the actual weekend deliverable (the
-# banking workload) must not sit behind node-exporter/monitoring-stack,
+- name: Stable NAT-traversing addressing for the Patroni cluster
+    (Tailscale) — must run before patroni-postgres/patroni-raft-witness,
+    which derive every node's address from it
+  hosts: patroni_cluster
+  become: true
+  roles:
+    - tailscale
+
+- name: The Patroni-managed PostgreSQL HA cluster (DBRE demo core) —
+    real Postgres nodes
+  hosts: patroni_db_nodes
+  become: true
+  roles:
+    - patroni-postgres
+
+- name: The Patroni-managed PostgreSQL HA cluster — Postgres-less raft
+    witness (3rd quorum vote, see group_vars/patroni_db_nodes/vars.yml)
+  hosts: patroni_witness
+  become: true
+  roles:
+    - patroni-raft-witness
+
+# Deliberately runs right after the Patroni cluster plays, still ahead of
+# metrics/monitoring: a host that fails a task in one play is excluded from
+# every later play in the same ansible-playbook run, so the actual demo
+# deliverable (ledger-service, which connects to the Patroni cluster) must
+# not sit behind node-exporter/monitoring-stack, which are nice-to-have and
+# have already been seen to fail from unrelated host-local package corruption
 # which are nice-to-have and have already been seen to fail from unrelated
 # host-local package corruption (found running this for real on
 # ITSaRevolution: a corrupted dpkg list file for an unrelated package

@@ -1,0 +1,60 @@
+---
+- name: Install Python venv support and build tooling for psycopg2
+  ansible.builtin.package:
+    name:
+      - python3-venv
+      - python3-dev
+      - libpq-dev
+      - build-essential
+    state: present
+    update_cache: true
+
+- name: Create the Patroni venv and install patroni[raft] + psycopg2
+  ansible.builtin.pip:
+    name:
+      - "patroni[raft]"
+      - psycopg2-binary
+    virtualenv: "{{ patroni_venv }}"
+    virtualenv_command: python3 -m venv
+    state: present
+
+- name: Ensure Patroni's config directory exists
+  ansible.builtin.file:
+    path: /etc/patroni
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Ensure the raft data directory exists
+  ansible.builtin.file:
+    path: "{{ patroni_raft_data_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Deploy raft-witness.yml
+  ansible.builtin.template:
+    src: raft-witness.yml.j2
+    dest: "{{ patroni_raft_witness_config_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart patroni-raft-witness
+
+- name: Deploy the patroni-raft-witness systemd unit
+  ansible.builtin.template:
+    src: patroni-raft-witness.service.j2
+    dest: /etc/systemd/system/patroni-raft-witness.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart patroni-raft-witness
+
+- name: Ensure patroni-raft-witness is enabled and running
+  ansible.builtin.systemd:
+    name: patroni-raft-witness
+    state: started
+    enabled: true
+    daemon_reload: true

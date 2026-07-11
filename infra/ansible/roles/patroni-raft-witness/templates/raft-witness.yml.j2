@@ -1,0 +1,18 @@
+# Managed by this repo (infra/ansible/roles/patroni-raft-witness) —
+# local edits are overwritten on the next reconcile pass.
+#
+# Postgres-less: this machine's only job is to be the 3rd voting
+# member of the raft DCS quorum, so the 2 real Postgres nodes
+# (patroni_db_nodes) can survive losing either one of them without
+# losing majority — see group_vars/patroni_db_nodes/vars.yml.
+name: {{ inventory_hostname | lower }}
+
+raft:
+  data_dir: {{ patroni_raft_data_dir }}
+  self_addr: {{ patroni_advertise_address }}:{{ patroni_raft_port }}
+  partner_addrs:
+{% for member in patroni_raft_members %}
+{% if member != (patroni_advertise_address ~ ':' ~ patroni_raft_port) %}
+    - {{ member }}
+{% endif %}
+{% endfor %}

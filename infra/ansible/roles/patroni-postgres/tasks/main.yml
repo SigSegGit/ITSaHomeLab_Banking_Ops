@@ -1,0 +1,141 @@
+---
+# One Patroni-managed PostgreSQL 16 node. Debian's own postgresql-16
+# package auto-creates and starts a "16 main" cluster on install
+# (pg_createcluster via postinst) — that default cluster is stopped
+# and dropped below, because Patroni owns cluster lifecycle (initdb,
+# start/stop, promote) from its own separate data_dir; leaving the
+# Debian-managed one running would fight Patroni for port 5432 and
+# create a second, unmanaged copy of the data nobody's failing over.
+
+- name: Refuse to proceed without real Patroni credentials configured
+  ansible.builtin.assert:
+    that:
+      - patroni_admin_password | length > 0
+      - patroni_replication_password | length > 0
+      - patroni_superuser_password | length > 0
+    fail_msg: >-
+      patroni_{admin,replication,superuser}_password must come from
+      group_vars/patroni_cluster/vault.yml — see CLAUDE.md/STATUS.md
+      for how those were generated and how to rotate them.
+
+- name: Add the PostgreSQL apt signing key
+  ansible.builtin.get_url:
+    url: https://www.postgresql.org/media/keys/ACCC4CF8.asc
+    dest: /etc/apt/keyrings/postgresql.asc
+    mode: "0644"
+
+- name: Add the PGDG apt repository
+  ansible.builtin.apt_repository:
+    repo: >-
+      deb [signed-by=/etc/apt/keyrings/postgresql.asc]
+      https://apt.postgresql.org/pub/repos/apt {{ ansible_distribution_release }}-pgdg main
+    filename: pgdg
+    state: present
+
+- name: Install PostgreSQL, build tooling, and Python venv support
+  ansible.builtin.package:
+    name:
+      - "postgresql-{{ patroni_pg_version }}"
+      - python3-venv
+      - python3-dev
+      - libpq-dev
+      - build-essential
+    state: present
+    update_cache: true
+
+- name: Check whether Debian's default cluster exists
+  ansible.builtin.command: pg_lsclusters --no-header
+  register: pg_clusters
+  changed_when: false
+
+- name: Stop and drop Debian's auto-created default cluster
+  ansible.builtin.command: >-
+    pg_dropcluster {{ patroni_pg_version }} main --stop
+  when: "(patroni_pg_version ~ ' main') in pg_clusters.stdout"
+  changed_when: true
+
+- name: Create the Patroni venv and install patroni + dependencies
+  ansible.builtin.pip:
+    name:
+      - "patroni[raft]"
+      - psycopg2-binary
+    virtualenv: "{{ patroni_venv }}"
+    virtualenv_command: python3 -m venv
+    state: present
+
+- name: Ensure Patroni's config directory exists
+  ansible.builtin.file:
+    path: /etc/patroni
+    state: directory
+    owner: "{{ patroni_pg_user }}"
+    group: "{{ patroni_pg_user }}"
+    mode: "0750"
+
+- name: Ensure the raft data directory exists
+  ansible.builtin.file:
+    path: "{{ patroni_raft_data_dir }}"
+    state: directory
+    owner: "{{ patroni_pg_user }}"
+    group: "{{ patroni_pg_user }}"
+    mode: "0750"
+
+- name: Ensure the Postgres data directory's parent exists with correct ownership
+  ansible.builtin.file:
+    path: "{{ patroni_data_dir | dirname }}"
+    state: directory
+    owner: "{{ patroni_pg_user }}"
+    group: "{{ patroni_pg_user }}"
+    mode: "0750"
+
+- name: Deploy patroni.yml
+  ansible.builtin.template:
+    src: patroni.yml.j2
+    dest: "{{ patroni_config_path }}"
+    owner: "{{ patroni_pg_user }}"
+    group: "{{ patroni_pg_user }}"
+    mode: "0600" # contains passwords
+  notify: Restart patroni
+
+- name: Deploy the patroni systemd unit
+  ansible.builtin.template:
+    src: patroni.service.j2
+    dest: /etc/systemd/system/patroni.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart patroni
+
+- name: Ensure patroni is enabled and running
+  ansible.builtin.systemd:
+    name: patroni
+    state: started
+    enabled: true
+    daemon_reload: true
+
+# ledger-service's DATABASE_URL (see banking-app role) uses libpq's
+# multi-host + target_session_attrs=read-write, which finds whichever
+# node is currently primary on its own — but the `ledger` database
+# itself only needs creating once, and only the current primary can
+# accept the write. Every node checks its own Patroni REST API
+# (200 only on the primary, 503 otherwise) so this stays a no-op
+# everywhere except wherever the leader actually is right now,
+# regardless of which host that turns out to be after a failover.
+- name: Check whether this node is currently the Patroni primary
+  ansible.builtin.uri:
+    url: "http://localhost:{{ patroni_restapi_port }}/primary"
+    status_code: [200, 503]
+  register: patroni_primary_check
+  failed_when: false
+  changed_when: false
+  retries: 10
+  delay: 3
+  until: patroni_primary_check.status is defined
+
+- name: Create the ledger application database on the current primary
+  community.postgresql.postgresql_db:
+    name: ledger
+    login_host: localhost
+    login_port: "{{ patroni_pg_port }}"
+    login_user: postgres
+    login_password: "{{ patroni_superuser_password }}"
+  when: patroni_primary_check.status == 200

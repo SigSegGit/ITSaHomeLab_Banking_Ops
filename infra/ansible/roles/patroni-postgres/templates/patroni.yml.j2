@@ -1,0 +1,73 @@
+# Managed by this repo (infra/ansible/roles/patroni-postgres) — local
+# edits are overwritten on the next reconcile pass.
+scope: {{ patroni_scope }}
+namespace: {{ patroni_namespace }}
+name: {{ inventory_hostname | lower }}
+
+restapi:
+  listen: 0.0.0.0:{{ patroni_restapi_port }}
+  connect_address: {{ patroni_advertise_address }}:{{ patroni_restapi_port }}
+
+raft:
+  data_dir: {{ patroni_raft_data_dir }}
+  self_addr: {{ patroni_advertise_address }}:{{ patroni_raft_port }}
+  partner_addrs:
+{% for member in patroni_raft_members %}
+{% if member != (patroni_advertise_address ~ ':' ~ patroni_raft_port) %}
+    - {{ member }}
+{% endif %}
+{% endfor %}
+
+bootstrap:
+  dcs:
+    ttl: 30
+    loop_wait: 10
+    retry_timeout: 10
+    maximum_lag_on_failover: 1048576
+    postgresql:
+      use_pg_rewind: true
+      parameters:
+        wal_level: replica
+        hot_standby: "on"
+        max_wal_senders: 10
+        max_replication_slots: 10
+        wal_keep_size: 128MB
+
+  initdb:
+    - encoding: UTF8
+    - data-checksums
+
+  pg_hba:
+    - host replication replicator 127.0.0.1/32 md5
+    - host replication replicator 100.64.0.0/10 md5
+    - host all all 100.64.0.0/10 md5
+    - host all all 127.0.0.1/32 md5
+
+  users:
+    admin:
+      password: "{{ patroni_admin_password }}"
+      options:
+        - createrole
+        - createdb
+
+postgresql:
+  listen: 0.0.0.0:{{ patroni_pg_port }}
+  connect_address: {{ patroni_advertise_address }}:{{ patroni_pg_port }}
+  data_dir: {{ patroni_data_dir }}
+  bin_dir: {{ patroni_pg_bin_dir }}
+  pgpass: /var/lib/postgresql/.pgpass
+  authentication:
+    replication:
+      username: replicator
+      password: "{{ patroni_replication_password }}"
+    superuser:
+      username: postgres
+      password: "{{ patroni_superuser_password }}"
+  parameters:
+    unix_socket_directories: '.'
+
+tags:
+  nofailover: false
+  noloadbalance: false
+  clonefrom: false
+  nosync: false

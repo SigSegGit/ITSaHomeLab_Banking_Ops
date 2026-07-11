@@ -1,0 +1,45 @@
+---
+# Non-secret Patroni cluster config, shared by every DB node
+# (patroni_db_nodes group). Passwords live in vault.yml, encrypted —
+# see ARCHITECTURE.md's secrets section.
+
+patroni_scope: ledger-cluster
+patroni_namespace: /db/
+patroni_pg_version: 16
+patroni_pg_bin_dir: /usr/lib/postgresql/16/bin
+patroni_data_dir: /var/lib/postgresql/16/patroni
+patroni_raft_data_dir: /var/lib/patroni/raft
+
+# REST API + raft + postgres all need to be reachable between nodes.
+# Every relevant machine (patroni_db_nodes + patroni_witness) joins a
+# Tailscale tailnet specifically to get a stable, NAT-traversing
+# address that doesn't change when MorePower roams — see the
+# `tailscale` role. Each node's advertise address is fully predictable
+# from its own hostname + the shared tailnet domain, so this doesn't
+# need cross-host fact-gathering, which matters because this repo's
+# pull-model reconcile only ever runs `--limit "%H"` (a host never
+# gathers facts about its peers, only itself).
+patroni_raft_port: 2222
+patroni_restapi_port: 8008
+patroni_pg_port: 5432
+patroni_advertise_address: "{{ inventory_hostname | lower }}.{{ tailscale_tailnet_domain }}"
+
+# The raft DCS needs 3 voting members for quorum to survive losing any
+# one of them (2 Postgres nodes alone can't: losing either one drops
+# quorum below majority, which would make automatic failover
+# impossible right when it matters). smallrevolt runs a Postgres-less
+# patroni_raft_controller purely as the third vote — see the
+# patroni-raft-witness role and hosts.yml's patroni_witness group.
+patroni_raft_members:
+  - "morepower.{{ tailscale_tailnet_domain }}:{{ patroni_raft_port }}"
+  - "gcp-burst-1.{{ tailscale_tailnet_domain }}:{{ patroni_raft_port }}"
+  - "smallrevolt.{{ tailscale_tailnet_domain }}:{{ patroni_raft_port }}"
+
+# Just the 2 real Postgres nodes (no witness — smallrevolt never runs
+# Postgres) — used by the banking-app role to build ledger-service's
+# multi-host DATABASE_URL. Separate list from patroni_raft_members on
+# purpose: a libpq connection to the witness on :5432 would just fail,
+# since nothing is listening there.
+patroni_pg_hosts:
+  - "morepower.{{ tailscale_tailnet_domain }}"
+  - "gcp-burst-1.{{ tailscale_tailnet_domain }}"

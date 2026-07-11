@@ -1,0 +1,17 @@
+[Unit]
+Description=Patroni: PostgreSQL {{ patroni_pg_version }} HA cluster member
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=postgres
+Group=postgres
+ExecStart={{ patroni_venv }}/bin/patroni {{ patroni_config_path }}
+KillMode=process
+TimeoutSec=30
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

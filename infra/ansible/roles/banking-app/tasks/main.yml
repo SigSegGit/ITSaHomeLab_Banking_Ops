@@ -62,6 +62,20 @@
     delete: true
     rsync_opts:
       - "--exclude=.git"
+      - "--exclude=.env" # deployed separately below, after this rsync
+
+# Must run after the rsync above: `delete: true` there would remove
+# this file on the next cycle otherwise, since it isn't part of the
+# source tree (deliberately — it holds a password, so it's templated
+# from vault.yml, not committed).
+- name: Deploy ledger-service's .env (DATABASE_URL, points at the Patroni cluster)
+  ansible.builtin.template:
+    src: ledger-service.env.j2
+    dest: /opt/ledger-service/.env
+    owner: root
+    group: root
+    mode: "0600"
+  when: "'patroni_db_nodes' in group_names"
 
 - name: Bring up the ledger-service stack
   community.docker.docker_compose_v2:

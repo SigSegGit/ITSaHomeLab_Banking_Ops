@@ -1,35 +1,21 @@
 services:
-  db:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ledger
-      POSTGRES_PASSWORD: ledger
-      POSTGRES_DB: ledger
-    volumes:
-      - ledger-db-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ledger"]
-      interval: 2s
-      timeout: 2s
-      retries: 15
-
   ledger:
     build: .
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql+psycopg2://ledger:ledger@db:5432/ledger
+      # No standalone `db` service — connects to the Patroni-managed
+      # HA cluster (infra/ansible/roles/patroni-postgres). DATABASE_URL
+      # is provided via .env, deployed by the banking-app Ansible role
+      # from a template that lists both Patroni nodes with
+      # target_session_attrs=read-write: libpq itself finds whichever
+      # node is currently primary, so this doesn't need to change (or
+      # for anyone to point it at a new host) across a failover.
+      DATABASE_URL: ${DATABASE_URL}
     ports:
       - "8000:8000"
-    depends_on:
-      db:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 15s
-
-volumes:
-  ledger-db-data:
