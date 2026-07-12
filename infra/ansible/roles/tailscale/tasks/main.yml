@@ -3,15 +3,25 @@
   ansible.builtin.assert:
     that:
       - tailscale_tailnet_domain | length > 0
-      - tailscale_auth_key | length > 0
     fail_msg: >-
-      tailscale_tailnet_domain and tailscale_auth_key must both be set
-      (group_vars/patroni_cluster/vars.yml + vault.yml) before this
-      role can run — every node's patroni_advertise_address is derived
-      from the domain, so a missing value here would otherwise
-      silently misconfigure the whole cluster's addressing instead of
-      failing loudly right now.
+      tailscale_tailnet_domain must be set (group_vars/patroni_cluster/
+      vars.yml) before this role can run — every node's
+      patroni_advertise_address is derived from it, so a missing value
+      here would otherwise silently misconfigure the whole cluster's
+      addressing instead of failing loudly right now.
   when: tailscale_enabled
+
+# tailscale_auth_key is intentionally NOT required. 2026-07-13: no
+# reusable auth key was ever generated for this tailnet, so
+# itsarevolution/smallrevolt/MorePower were enrolled by hand — SSH in,
+# `tailscale up` with no --authkey, relay the printed login URL to the
+# owner for phone approval. That's a one-time, human-in-the-loop step
+# this unattended role was never going to be able to do for a *first*
+# join anyway (no one is watching journalctl to click a URL when the
+# reconcile timer fires). If a real auth key gets generated later, drop
+# it in vault.yml and the task below starts using it automatically —
+# until then, the role's job is to keep already-joined nodes joined and
+# loudly say so when a node isn't, not to silently no-op.
 
 # Stable, NAT-traversing addressing between nodes that don't share a
 # LAN — specifically MorePower, which roams with the owner and gets a
@@ -57,18 +67,36 @@
   failed_when: false
   when: tailscale_enabled
 
+- name: Whether this node is already logged in
+  ansible.builtin.set_fact:
+    tailscale_already_logged_in: "{{ (tailscale_status.stdout | default('{}') | from_json).get('BackendState', '') == 'Running' }}"
+  when: tailscale_enabled
+
 # Idempotent by design: `tailscale up` with the same authkey/hostname
 # on an already-joined node is a no-op (confirms settings rather than
 # re-registering), so this is safe to run every reconcile cycle rather
-# than only once at enrollment.
-- name: Join the tailnet
+# than only once at enrollment. Only takes this path when a real auth
+# key exists — see the note above the assert task.
+- name: Join the tailnet (auth key path)
   ansible.builtin.command: >-
     tailscale up --authkey={{ tailscale_auth_key }}
     --hostname={{ inventory_hostname | lower }}
     --accept-dns=false --ssh=false
-  when: tailscale_enabled
+  when: tailscale_enabled and tailscale_auth_key | length > 0
   changed_when: "'up_result' not in (tailscale_status.stdout | default(''))"
   no_log: true # the auth key would otherwise land in the reconcile log
+
+- name: Fail loudly if this node needs a human to run `tailscale up` once
+  ansible.builtin.fail:
+    msg: >-
+      No tailscale_auth_key is configured and this node isn't logged in
+      yet ({{ inventory_hostname }}). Unattended reconcile can't finish
+      a first login by itself — a human has to run
+      `tailscale up --hostname={{ inventory_hostname | lower }}
+      --accept-dns=false --ssh=false` on this host directly, watch for
+      the printed login URL, and approve it. Once logged in, this role
+      goes back to being a no-op reconcile step.
+  when: tailscale_enabled and tailscale_auth_key | length == 0 and not tailscale_already_logged_in
 
 - name: Confirm this node's tailnet hostname resolves the way patroni_advertise_address expects
   ansible.builtin.debug:

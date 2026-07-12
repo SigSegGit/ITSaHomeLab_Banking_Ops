@@ -24,22 +24,22 @@ patroni_restapi_port: 8008
 patroni_pg_port: 5432
 patroni_advertise_address: "{{ inventory_hostname | lower }}.{{ tailscale_tailnet_domain }}"
 
-# The raft DCS needs 3 voting members for quorum to survive losing any
-# one of them (2 Postgres nodes alone can't: losing either one drops
-# quorum below majority, which would make automatic failover
-# impossible right when it matters). smallrevolt runs a Postgres-less
-# patroni_raft_controller purely as the third vote — see the
-# patroni-raft-witness role and hosts.yml's patroni_witness group.
+# 2026-07-13, deliberate scope decision (see STATUS.md): just the 2
+# real Postgres nodes, no 3rd witness vote. A production cluster wants
+# 3 raft voters — losing either of 2 members drops quorum below
+# majority (2-of-2 required), so a hard node kill can't safely
+# auto-promote. What 2 members CAN do, quorum-safely, is a *planned*
+# `patronictl switchover`: nothing goes down during a graceful handoff,
+# so both members stay reachable and reach consensus normally. That's
+# the honest demo — plus explaining the quorum math for why real
+# production HA needs the 3rd vote — rather than standing up a fake
+# witness just to make an automatic-kill demo technically possible.
 patroni_raft_members:
   - "morepower.{{ tailscale_tailnet_domain }}:{{ patroni_raft_port }}"
-  - "gcp-burst-1.{{ tailscale_tailnet_domain }}:{{ patroni_raft_port }}"
   - "smallrevolt.{{ tailscale_tailnet_domain }}:{{ patroni_raft_port }}"
 
-# Just the 2 real Postgres nodes (no witness — smallrevolt never runs
-# Postgres) — used by the banking-app role to build ledger-service's
-# multi-host DATABASE_URL. Separate list from patroni_raft_members on
-# purpose: a libpq connection to the witness on :5432 would just fail,
-# since nothing is listening there.
+# Same 2 hosts — used by the banking-app role to build ledger-service's
+# multi-host DATABASE_URL.
 patroni_pg_hosts:
   - "morepower.{{ tailscale_tailnet_domain }}"
-  - "gcp-burst-1.{{ tailscale_tailnet_domain }}"
+  - "smallrevolt.{{ tailscale_tailnet_domain }}"

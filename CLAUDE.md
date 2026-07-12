@@ -22,11 +22,20 @@ Deliberate scope cuts made under time pressure (see STATUS.md for
 when/why) — do not silently re-expand these without checking with the
 owner first: Patroni's own built-in Raft DCS instead of a separate
 etcd quorum; the existing `apps/ledger-service` reused as the
-transactional app instead of a new bespoke app; 2 nodes (MorePower +
-a GCP burst node) rather than a wider mesh, with `ITSaRevolution` (Pi)
-added back only once its SD card is confirmed stable (see the
-`hosts.yml` comment — it was pulled out after confirmed hardware
-corruption).
+transactional app instead of a new bespoke app.
+
+**Topology, corrected 2026-07-12**: all 3 real machines (`ITSaRevolution`,
+`smallrevolt`, `MorePower`) are confirmed alive by the owner — the demo
+targets these 3, not the GCP burst node. `MorePower` + `ITSaRevolution`
+run Patroni + Postgres (`patroni_db_nodes`); `smallrevolt` is the
+Postgres-less raft witness (`patroni_witness`). `infra/terraform-gcp`
+stays in the repo, built and ready, but is out of the active demo
+inventory. The earlier SD-card corruption finding on `ITSaRevolution`
+(see STATUS.md, 2026-07-11) was real, dmesg-confirmed hardware
+corruption, not a misdiagnosis — the owner's 2026-07-12 correction says
+the machine is up now, not that the corruption never happened. If it
+starts throwing filesystem errors again mid-prep, check `dmesg` before
+assuming an app-level cause.
 
 If you find yourself building anything that isn't in service of the 4
 numbered points above, stop and check it's actually needed.

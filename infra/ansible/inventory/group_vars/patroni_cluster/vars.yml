@@ -4,10 +4,6 @@
 
 tailscale_enabled: true
 
-# REQUIRED, no safe default: this is the owner's real Tailscale
-# tailnet's MagicDNS suffix (visible in the Tailscale admin console,
-# e.g. "tailnet-name.ts.net" or a custom domain). Left empty
-# deliberately — a wrong guess here would silently misconfigure every
-# node's advertise address, which is a much worse failure mode than
-# the loud, obvious one the tailscale role's assert produces instead.
-tailscale_tailnet_domain: ""
+# The owner's real Tailscale tailnet's MagicDNS suffix, confirmed from
+# the Tailscale admin console's DNS settings 2026-07-13.
+tailscale_tailnet_domain: "tail943111.ts.net"

@@ -7,6 +7,120 @@ hours and a lot of owner frustration to correctly establish tonight;
 don't let this file's older, pre-correction entries below drift you
 back toward the wrong framing ("generic homelab weekend resilience").
 
+## Topology pivot (2026-07-13): itsarevolution unreachable, gcp-burst-1 reactivated as the 3rd raft vote
+
+Interview is today. `itsarevolution` never came back (see the entry
+below) and the owner asked explicitly: the demo must still work
+without it, including live automatic failover — not just monitoring.
+Quorum math forces the shape of the fix: raft needs a strict majority,
+so 2 voting members can't survive losing either one (1-of-2 isn't a
+majority), which is exactly the automatic-failover demo. Colocating a
+2nd raft process on one of the 2 remaining physical machines was
+considered and rejected — if that *same* machine is the one killed,
+its DB-node vote and its colocated witness vote both disappear
+together, breaking quorum in exactly the direction the demo needs to
+work. A 3rd voter has to be genuinely independent.
+
+**New shape**: `smallrevolt` promoted from witness-only to a real
+Postgres+Patroni DB node, alongside `MorePower`. `gcp-burst-1`
+(`infra/terraform-gcp`, built 2026-07-11/12, never applied) takes the
+witness slot instead — genuinely independent (own public IP, not on
+the home network/power at all), which is a real advantage for the 3rd
+vote specifically, not just a fallback of convenience.
+`hosts.yml`/`group_vars/patroni_db_nodes/vars.yml`/
+`host_vars/gcp-burst-1.yml` all updated to match. Revert path if
+itsarevolution comes back later: swap it back in for `smallrevolt` in
+`patroni_db_nodes`, put `gcp-burst-1` back to witness-standby — see
+git history for the exact prior shape (commit before this entry).
+
+**Not yet done**: this is config-only so far. Actually applying it
+needs `terraform apply` in `infra/terraform-gcp/` (owner's GCP project
+ID + billing account ID — neither `terraform` nor `gcloud` are
+installed in this session's environment), then enrolling the new VM
+the same way as every other host, then Tailscale-joining it (same
+manual login-URL flow as the other two, see above), then running the
+`patroni-postgres` role on `MorePower`+`smallrevolt` and
+`patroni-raft-witness` on `gcp-burst-1`.
+
+## Dashboard: node status panel added, works regardless of pool membership
+
+`infra/ansible/roles/monitoring-stack/files/dashboard-lab-overview.json`
+gained a "Node status" row (`up{job="node"}` per instance, red/down —
+green/up, color-coded) across the full dashboard width — the owner
+asked for a real per-machine status report that doesn't depend on
+which nodes actually end up reachable at demo time. This is genuinely
+resilient to the `itsarevolution` situation: Prometheus scrapes it by
+name regardless (`monitoring_scrape_targets` in
+`roles/monitoring-stack/defaults/main.yml` already lists all 3), so if
+it's down, the dashboard visibly, honestly says so instead of just
+having a gap. Not yet deployed to the real `smallrevolt` Grafana
+instance — next reconcile pass picks it up via the existing dashboard
+provisioning (`grafana-dashboard-provider.yml`), no manual step needed.
+
+## Tailscale: 2 of 3 nodes really enrolled (2026-07-13), no auth key exists
+
+`smallrevolt` and `MorePower` are confirmed joined to the real tailnet
+(`tail943111.ts.net` — filled into `group_vars/patroni_cluster/vars.yml`
+from the owner's admin console screenshot), verified with a real
+`tailscale status` on both showing each other as peers. `itsarevolution`
+is still not joined — it's unreachable entirely (see below).
+
+**How this actually got done, since no reusable auth key was ever
+generated**: this session SSH'd into each host directly (bypassing the
+unattended pull-loop for this one bootstrap step, since a login URL
+needs a human to click it) and ran `tailscale up` with no `--authkey`,
+which prints a `https://login.tailscale.com/a/...` URL; the owner
+approved each one from his phone (once via a plain link, once via a
+QR code rendered for the same URL). `infra/ansible/roles/tailscale/`
+is updated to match this reality: `tailscale_auth_key` is no longer a
+hard-required assert, and the role now fails loudly (naming the exact
+manual command) rather than silently no-op'ing when a node isn't
+logged in and no auth key exists — it does NOT attempt the login flow
+itself, since an unattended reconcile run has no human watching to
+click the URL.
+
+**`MorePower` had no deployed SSH key at all** (unlike the other two,
+there's no `host_vars/MorePower.yml`, so `base-hardening` never ran
+there) — the owner gave its real login (`morepower` / real password,
+not written here or anywhere in the repo) for a one-time password
+auth, used only to deploy the same lab SSH key that's on the other two
+hosts, immediately confirmed working, password never reused after
+that. `host_vars/MorePower.yml` doesn't exist yet — creating it (with
+this same authorized_key + firewall port prep, matching the other two
+hosts' host_vars) is a real remaining gap before `base-hardening` can
+manage this host the normal way.
+
+**Real bug caught doing this, worth remembering**: chaining
+`some-download | (echo password | sudo -S tee file)` silently produces
+an empty file — the inner pipe's `echo` steals stdin from `tee`, so
+the downloaded content never reaches it, and the whole thing exits 0
+with no error. Correct pattern: download to a temp file as the
+unprivileged user first, then `sudo mv` it into place. Same class of
+"looks right, silently does nothing" bug this repo's STATUS.md has
+hit before (the `%H`/`--limit` saga above).
+
+## Topology correction (2026-07-12): all 3 real machines confirmed alive, demo targets them instead of the GCP node
+
+Owner correction, in chat, overriding the GCP-standin plan below and in
+`ROADMAP.md`/`CLAUDE.md`'s prior framing: `ITSaRevolution` (Pi),
+`smallrevolt` (Freebox VM), and `MorePower` (laptop VM) are **all
+working right now**. The demo's Patroni cluster now targets
+`MorePower` + `ITSaRevolution` as the 2 Postgres nodes, `smallrevolt`
+as the raft witness — the original 3-machine, weakest-vs-strongest
+topology `ROADMAP.md`'s M3 section describes, not the GCP-burst
+stand-in built for it below. `infra/terraform-gcp` and `gcp-burst-1`
+stay in the repo (real, ready, CI-validated) but are out of the active
+inventory groups — see `hosts.yml`, `group_vars/patroni_db_nodes/vars.yml`,
+`host_vars/ITSaRevolution.yml`, `CLAUDE.md`, all updated to match.
+
+This does **not** retroactively invalidate the dmesg-confirmed ext4
+block-bitmap corruption documented in the entry directly below — that
+was a real hardware-level finding, not a misread. It means the machine
+is reachable and being put back to work despite it. Worth a quick
+`dmesg | grep -i ext4` sanity check before loading it with Patroni +
+Docker for real, rather than assuming the earlier finding has
+resolved itself.
+
 ## ITSaRevolution's dpkg lockup: real root cause found, fixed for real — SD card health still unconfirmed
 
 The owner diagnosed the actual mechanism behind the repeated dpkg

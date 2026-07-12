@@ -108,7 +108,7 @@ echo "    follow it with: journalctl -u homelab-reconcile.service -f"
 # at /etc/itsahomelab-banking-ops/age.key by hand (out of band) before the
 # first reconcile run touches anything that needs it.
 #
-# If this host is in patroni_cluster (MorePower, gcp-burst-1,
+# If this host is in patroni_cluster (MorePower, ITSaRevolution,
 # smallrevolt), it also needs the ansible-vault password dropped at
 # /etc/itsahomelab-banking-ops/vault-pass (mode 0600, root-only) before
 # its first reconcile — otherwise the patroni-postgres/tailscale roles

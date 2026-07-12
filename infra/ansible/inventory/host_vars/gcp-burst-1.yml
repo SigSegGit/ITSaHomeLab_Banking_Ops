@@ -1,8 +1,9 @@
 ---
-# GCP e2-micro burst node (infra/terraform-gcp) — stands in for
-# ITSaRevolution in banking_app_nodes while the Pi's SD card is
-# suspect (see STATUS.md). Headless cloud VM: no console keyboard
-# layout to set, unlike the physical machines.
+# GCP e2-micro burst node (infra/terraform-gcp). Reworked 2026-07-13:
+# now the Patroni cluster's 3rd raft quorum vote (patroni_witness, no
+# Postgres) rather than a banking_app_nodes standin — see STATUS.md and
+# group_vars/patroni_db_nodes/vars.yml. Headless cloud VM: no console
+# keyboard layout to set, unlike the physical machines.
 
 # Same key as ITSaRevolution.yml / smallrevolt.yml — the Terraform
 # module also grants this key at instance-creation time via the
@@ -16,8 +17,8 @@ base_hardening_authorized_keys:
 # needed, unlike ITSaRevolution/smallrevolt) — safe to open the
 # firewall as soon as key login is verified, since there's no risk of
 # losing the only access path the way there would be on a
-# single-network-path home machine.
+# single-network-path home machine. No 8000 here: this host runs no
+# ledger-service, only the Postgres-less raft witness.
 base_hardening_allowed_tcp_ports:
   - 22
-  - 8000  # ledger-service
   - 9100  # node-exporter

@@ -13,11 +13,13 @@ base_hardening_console_keyboard_layout: fr
 base_hardening_authorized_keys:
   - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC061hvzLwMkqaYC7JQ8mJdlf8e1t0sjTExnC3WreLEGbWhW9PdJO5ozoZgLOVKQdqUvnwsVe/27ns0r/15RYPQUlc79BV+SJBB0nIEckqd1woilH/UYx5sLNFSUMxsTB/mrETy2U7SjunWOMcW1HlIRUzAgFDD880YgLbVz3bYJyi+QQcUvjSvvLMeck3T+io1ScFyXjnnBB0Jl2Rja2M04/yngNpSR6Rxxtn3IR/gF829mEma7JfQYPjovLwGEnu8iDxuQYCc85Kz8xpOICIBIfFfokvRlcPt8cPw/75hy6Gdq2pFv0nbweuei6wfyAPEDTlw1tDr4SizXbmWdknAnUXdn76SqqQKGfvvSji/Kzx3g8xrCOGXAq0IB3VNrsc4ULwMyMtS/RZ7mID72c1pSK5jOp1UJh1nYGsSO4yC+JUtCtQGCDLV3kU6TngUq+Hb1mh/rW61//YQ2kIBps1JULKq2jvcvhsFlOeUzWIBv8wj2JZv6LktkWxqAMMQ+BM= sigseg@SIGSEG-DELL"
 
-# node-exporter (9100, scraped by smallrevolt) needs to stay reachable
-# from the LAN once the firewall is enabled — added ahead of time so
-# flipping base_hardening_firewall on later doesn't silently blackhole
-# monitoring. Firewall itself stays off until enabled. No 8000 here:
-# this host is out of banking_app_nodes for now (see hosts.yml).
+# node-exporter (9100, scraped by smallrevolt) and ledger-service
+# (8000) need to stay reachable from the LAN once the firewall is
+# enabled — added ahead of time so flipping base_hardening_firewall on
+# later doesn't silently blackhole monitoring or the app. Firewall
+# itself stays off until enabled. Back in banking_app_nodes as of
+# 2026-07-12 (see hosts.yml).
 base_hardening_allowed_tcp_ports:
   - 22
+  - 8000  # ledger-service
   - 9100  # node-exporter
