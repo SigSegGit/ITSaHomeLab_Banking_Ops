@@ -71,12 +71,26 @@
     name: "{{ base_hardening_timezone }}"
   when: base_hardening_timezone | length > 0
 
+- name: Check whether this host has a real console (console-setup package)
+  ansible.builtin.stat:
+    path: /etc/default/keyboard
+  register: base_hardening_keyboard_file
+  when: base_hardening_console_keyboard_layout | length > 0
+
 - name: Set console keyboard layout
   ansible.builtin.lineinfile:
     path: /etc/default/keyboard
     regexp: '^XKBLAYOUT='
     line: 'XKBLAYOUT="{{ base_hardening_console_keyboard_layout }}"'
-  when: base_hardening_console_keyboard_layout | length > 0
+  # Headless VMs (smallrevolt, MorePower) never install console-setup,
+  # so /etc/default/keyboard genuinely doesn't exist there — that's not
+  # a fixable misconfiguration, it's a real console-less machine, so
+  # skip rather than fail the whole reconcile run over a setting that
+  # has nowhere to apply. Physical machines with a console (the Pi)
+  # keep getting this set normally.
+  when:
+    - base_hardening_console_keyboard_layout | length > 0
+    - base_hardening_keyboard_file.stat.exists
   notify: Apply console keyboard layout
 
 - name: Confirm this host's identity for the reconcile log
