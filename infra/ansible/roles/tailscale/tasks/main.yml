@@ -81,7 +81,7 @@
   ansible.builtin.command: >-
     tailscale up --authkey={{ tailscale_auth_key }}
     --hostname={{ inventory_hostname | lower }}
-    --accept-dns=false --ssh=false
+    --accept-dns=true --ssh=false
   when: tailscale_enabled and tailscale_auth_key | length > 0
   changed_when: "'up_result' not in (tailscale_status.stdout | default(''))"
   no_log: true # the auth key would otherwise land in the reconcile log
@@ -93,10 +93,24 @@
       yet ({{ inventory_hostname }}). Unattended reconcile can't finish
       a first login by itself — a human has to run
       `tailscale up --hostname={{ inventory_hostname | lower }}
-      --accept-dns=false --ssh=false` on this host directly, watch for
+      --accept-dns=true --ssh=false` on this host directly, watch for
       the printed login URL, and approve it. Once logged in, this role
       goes back to being a no-op reconcile step.
   when: tailscale_enabled and tailscale_auth_key | length == 0 and not tailscale_already_logged_in
+
+# Covers nodes that first joined manually before this flag flipped to
+# true (real bug hit 2026-07-13: smallrevolt/MorePower were enrolled
+# with --accept-dns=false, which does not push tailscale's MagicDNS
+# resolver into the node's own resolv.conf — patroni_advertise_address
+# and patroni_raft_members both depend entirely on `<host>.<tailnet>`
+# actually resolving, so patronictl and Patroni's own raft/replication
+# connections failed outright with "failed to resolve host"). `tailscale
+# set` only touches runtime flags on an already-authenticated node, no
+# re-login needed, and is a safe no-op once the setting is already correct.
+- name: Ensure MagicDNS is accepted (patroni_advertise_address needs it to resolve)
+  ansible.builtin.command: tailscale set --accept-dns=true
+  when: tailscale_enabled and tailscale_already_logged_in
+  changed_when: false
 
 - name: Confirm this node's tailnet hostname resolves the way patroni_advertise_address expects
   ansible.builtin.debug:
