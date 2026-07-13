@@ -185,8 +185,10 @@
 
 - name: Grant pg_monitor to the monitoring role
   community.postgresql.postgresql_membership:
-    group: pg_monitor
-    target: monitoring
+    groups:
+      - pg_monitor
+    target_roles:
+      - monitoring
     state: present
     login_host: localhost
     login_port: "{{ patroni_pg_port }}"
