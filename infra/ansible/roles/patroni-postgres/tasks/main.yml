@@ -138,15 +138,6 @@
   delay: 3
   until: patroni_primary_check.status is defined
 
-- name: Create the ledger application database on the current primary
-  community.postgresql.postgresql_db:
-    name: ledger
-    login_host: localhost
-    login_port: "{{ patroni_pg_port }}"
-    login_user: postgres
-    login_password: "{{ patroni_superuser_password }}"
-  when: patroni_primary_check.status == 200
-
 # patroni.yml's old bootstrap.users section (removed 2026-07-13) never
 # actually created this role: Patroni 4.x dropped bootstrap.users
 # entirely ("User creation is not be supported starting from v4.0.0" —
@@ -155,12 +146,30 @@
 # succeeded. Managed here instead, the same idempotent way as the
 # `ledger` database itself — also means rotating patroni_admin_password
 # in vault.yml actually takes effect on every reconcile, which a
-# bootstrap-only mechanism never would have.
+# bootstrap-only mechanism never would have. Must run BEFORE the
+# database is created below, since that task makes `admin` its owner.
 - name: Ensure the admin application role exists with the current vault password
   community.postgresql.postgresql_user:
     name: admin
     password: "{{ patroni_admin_password }}"
     role_attr_flags: CREATEROLE,CREATEDB
+    login_host: localhost
+    login_port: "{{ patroni_pg_port }}"
+    login_user: postgres
+    login_password: "{{ patroni_superuser_password }}"
+  when: patroni_primary_check.status == 200
+
+# owner: admin matters as of Postgres 15: CREATE on the public schema
+# is no longer granted to every role by default, only to the schema/
+# database owner — found live, ledger-service crash-looping on
+# "permission denied for schema public" the moment it tried its first
+# CREATE TABLE, even though `admin` could already log in and had
+# CREATEDB/CREATEROLE at the cluster level. Owning the database it
+# actually uses is also just the more correct model than a global grant.
+- name: Create the ledger application database on the current primary
+  community.postgresql.postgresql_db:
+    name: ledger
+    owner: admin
     login_host: localhost
     login_port: "{{ patroni_pg_port }}"
     login_user: postgres
