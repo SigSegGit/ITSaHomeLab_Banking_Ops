@@ -50,6 +50,14 @@
   roles:
     - banking-app
 
+- name: PostgreSQL-specific metrics (replication lag, leader/replica
+    role) — the mission's "real performance monitoring" point, not
+    covered by generic node-exporter CPU/mem/disk
+  hosts: patroni_db_nodes
+  become: true
+  roles:
+    - postgres-exporter
+
 - name: Metrics agent every machine exports, so heterogeneous hardware
     is visible in one place (M4)
   hosts: all

@@ -13,6 +13,16 @@ services:
       DATABASE_URL: ${DATABASE_URL}
     ports:
       - "8000:8000"
+    # Real bug hit live (2026-07-13): Docker's embedded DNS on the
+    # default bridge network does not inherit the host's Tailscale
+    # MagicDNS resolution, so DATABASE_URL's *.tail943111.ts.net
+    # hostnames failed to resolve from inside the container even
+    # though they resolve fine on the host itself. Tailscale's own
+    # DNS proxy (100.100.100.100) is reachable from any container that
+    # can reach the host, regardless of network mode, and is the
+    # documented fix for exactly this.
+    dns:
+      - 100.100.100.100
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
       interval: 10s

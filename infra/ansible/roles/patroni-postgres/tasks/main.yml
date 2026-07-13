@@ -13,10 +13,12 @@
       - patroni_admin_password | length > 0
       - patroni_replication_password | length > 0
       - patroni_superuser_password | length > 0
+      - patroni_monitoring_password | length > 0
     fail_msg: >-
-      patroni_{admin,replication,superuser}_password must come from
-      group_vars/patroni_cluster/vault.yml — see CLAUDE.md/STATUS.md
-      for how those were generated and how to rotate them.
+      patroni_{admin,replication,superuser,monitoring}_password must
+      come from group_vars/patroni_cluster/vault.yml — see
+      CLAUDE.md/STATUS.md for how those were generated and how to
+      rotate them.
 
 - name: Add the PostgreSQL apt signing key
   ansible.builtin.get_url:
@@ -159,6 +161,33 @@
     name: admin
     password: "{{ patroni_admin_password }}"
     role_attr_flags: CREATEROLE,CREATEDB
+    login_host: localhost
+    login_port: "{{ patroni_pg_port }}"
+    login_user: postgres
+    login_password: "{{ patroni_superuser_password }}"
+  when: patroni_primary_check.status == 200
+
+# Least-privilege role for postgres_exporter — LOGIN only, no
+# CREATEROLE/CREATEDB, membership in the built-in pg_monitor role
+# (read access to pg_stat_* / pg_settings, nothing else) instead of
+# reusing the superuser credential the way a quick demo might be
+# tempted to. Created once on the primary; replicates to the replica
+# via WAL like any other role, same as `admin` above.
+- name: Ensure the monitoring role exists with the current vault password
+  community.postgresql.postgresql_user:
+    name: monitoring
+    password: "{{ patroni_monitoring_password }}"
+    login_host: localhost
+    login_port: "{{ patroni_pg_port }}"
+    login_user: postgres
+    login_password: "{{ patroni_superuser_password }}"
+  when: patroni_primary_check.status == 200
+
+- name: Grant pg_monitor to the monitoring role
+  community.postgresql.postgresql_membership:
+    group: pg_monitor
+    target: monitoring
+    state: present
     login_host: localhost
     login_port: "{{ patroni_pg_port }}"
     login_user: postgres

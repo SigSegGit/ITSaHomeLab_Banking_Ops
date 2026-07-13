@@ -22,3 +22,4 @@ base_hardening_allowed_tcp_ports:
   - 22
   - 8000  # ledger-service
   - 9100  # node-exporter
+  - 9187  # postgres_exporter (this host is a patroni_db_nodes member)

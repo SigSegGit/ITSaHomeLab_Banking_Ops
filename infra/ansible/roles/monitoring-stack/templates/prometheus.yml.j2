@@ -20,3 +20,17 @@ scrape_configs:
         labels:
           instance: "{{ target.name }}"
 {% endfor %}
+
+  # Reuses patroni_pg_hosts (group_vars/patroni_db_nodes/vars.yml)
+  # rather than a separate hardcoded list — this host (monitoring_host)
+  # is itself a patroni_db_nodes member, so the variable is already in
+  # scope, and it stays correct automatically if cluster membership
+  # changes (e.g. itsarevolution rejoining) instead of needing a
+  # second place to update.
+  - job_name: postgres
+    static_configs:
+{% for host in patroni_pg_hosts | default([]) %}
+      - targets: ["{{ host }}:{{ postgres_exporter_port | default(9187) }}"]
+        labels:
+          instance: "{{ host.split('.')[0] }}"
+{% endfor %}

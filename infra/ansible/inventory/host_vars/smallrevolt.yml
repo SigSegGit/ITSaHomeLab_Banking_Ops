@@ -23,3 +23,4 @@ base_hardening_allowed_tcp_ports:
   - 3000  # Grafana
   - 9090  # Prometheus
   - 9100  # node-exporter (this host's own)
+  - 9187  # postgres_exporter (this host is a patroni_db_nodes member)

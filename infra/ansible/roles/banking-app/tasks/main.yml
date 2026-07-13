@@ -75,10 +75,24 @@
     owner: root
     group: root
     mode: "0600"
-  when: "'patroni_db_nodes' in group_names"
+  # No `when` here on purpose: this whole role only ever runs on
+  # `hosts: banking_app_nodes` (see site.yml), so gating on group
+  # membership again was redundant — and wrong, since it checked
+  # `patroni_db_nodes` instead. That happened to be harmless while
+  # every banking_app_nodes host was also a patroni_db_nodes host, but
+  # would have silently skipped .env deployment for an app-only node
+  # (the normal case banking_app_nodes exists to allow) the moment one
+  # showed up. Found 2026-07-13 while debugging why the container
+  # couldn't resolve the DB — a red herring investigation until this
+  # was spotted; the real cause was the Docker DNS issue below.
 
 - name: Bring up the ledger-service stack
   community.docker.docker_compose_v2:
     project_src: /opt/ledger-service
     state: present
     build: always
+    # A standalone `db` container from before the Patroni migration
+    # was found still running on MorePower 46 hours after the compose
+    # file dropped that service — `docker compose up` doesn't remove
+    # containers that are no longer in the file unless told to.
+    remove_orphans: true
