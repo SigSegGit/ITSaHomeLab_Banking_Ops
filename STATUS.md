@@ -7,6 +7,72 @@ hours and a lot of owner frustration to correctly establish tonight;
 don't let this file's older, pre-correction entries below drift you
 back toward the wrong framing ("generic homelab weekend resilience").
 
+## THE DEMO WORKS, END TO END, FOR REAL (2026-07-13)
+
+Confirmed live, in this order, right before the interview: real
+2-node Patroni cluster (`smallrevolt` + `MorePower`, Postgres 16,
+streaming replication, 0 lag) → `ledger-service` connected via
+multi-host DSN → a real account created and deposited into via the
+actual HTTP API → a continuous 80-request write load run against it
+→ a live `patronictl switchover` (smallrevolt → morepower → back to
+smallrevolt) → **80/80 requests succeeded, zero failures**, confirmed
+in Prometheus (`patroni_primary` flipped instantly) and Grafana (all
+8 dashboard panels backed by real, verified metric names — nothing
+guessed). No GCP, no witness workaround needed for this: a *planned*
+switchover is quorum-safe with 2 raft members since nothing goes down
+mid-operation — see the "3rd raft vote" reasoning below for why an
+unplanned crash is a different story.
+
+Getting here from "topology decided" to "actually working" surfaced
+**9 real, reproduced-live bugs**, each fixed for real and verified
+again after, not just patched-and-hoped:
+1. `base-hardening`'s keyboard-layout task crashed the whole reconcile
+   on headless VMs (`/etc/default/keyboard` doesn't exist without
+   console-setup).
+2. `apt_repository` needs the `gpg` binary — missing on MorePower's
+   minimal Debian trixie image.
+3. Patroni 4.x silently dropped `bootstrap.users` entirely — the
+   `admin` role never got created despite bootstrap reporting success,
+   no error, no warning outside one easy-to-miss log line.
+4. `community.postgresql.postgresql_membership` wants `groups`/
+   `target_roles` (lists), not `group`/`target` (singular) — wrong
+   parameter names, not a permissions issue.
+5. Docker's embedded DNS on the default bridge network does not
+   inherit the host's Tailscale MagicDNS — fixed by pointing the
+   container at Tailscale's own resolver (100.100.100.100) directly.
+6. `banking-app`'s `.env` deploy task was gated on `patroni_db_nodes`
+   group membership instead of running unconditionally (the whole role
+   is already scoped to `banking_app_nodes`) — silently correct only
+   by coincidence.
+7. Docker's bridge-network IP isn't covered by `pg_hba.conf` by
+   default — needed an explicit `172.16.0.0/12` entry.
+8. **The big one**: `bootstrap.pg_hba` (and even
+   `bootstrap.dcs.postgresql.pg_hba`) is a *one-time-only* setting —
+   Patroni applies it once, at initial cluster creation, and never
+   again. Editing it and redeploying has *zero effect* on an
+   already-running cluster, no error. The actually-supported mechanism
+   for live changes is Patroni's dynamic config (`PATCH .../config` or
+   `patronictl edit-config`) — used live to unblock the demo, and now
+   documented in the template so the lesson isn't lost.
+9. Postgres 15+ no longer grants `CREATE` on the `public` schema to
+   every role by default, only the schema/database owner — `ledger`
+   was owned by `postgres`, not `admin`; ledger-service crash-looped
+   on its very first `CREATE TABLE` until the database's owner was
+   fixed to match who actually uses it.
+10. `dhcpcd` (MorePower's network manager) rewrites `/etc/resolv.conf`
+    on every DHCP renewal, silently dropping tailscaled's injected
+    resolver — DNS worked right after `tailscale set --accept-dns=true`
+    and then broke again later with no config change, mid-switchover-
+    test. Fixed via dhcpcd's own `resolv.conf.head` override, which
+    survives renewals.
+
+Every one of these was found by actually running the thing against
+real machines, not by reading code more carefully — which is the
+whole point of this repo's "verify before pushing" rule, and a live
+demonstration of exactly the kind of troubleshooting the job
+description asks for ("comfortable troubleshooting live production
+issues... replication configuration... PostgreSQL internals").
+
 ## Topology pivot (2026-07-13): itsarevolution unreachable, gcp-burst-1 reactivated as the 3rd raft vote
 
 Interview is today. `itsarevolution` never came back (see the entry
