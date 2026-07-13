@@ -43,12 +43,10 @@ bootstrap:
     - host all all 100.64.0.0/10 md5
     - host all all 127.0.0.1/32 md5
 
-  users:
-    admin:
-      password: "{{ patroni_admin_password }}"
-      options:
-        - createrole
-        - createdb
+  # No bootstrap.users here on purpose: Patroni 4.x removed that
+  # mechanism entirely (silently — bootstrap "succeeds" without ever
+  # creating the role). The `admin` role is created idempotently by
+  # patroni-postgres/tasks/main.yml instead, after the cluster is up.
 
 postgresql:
   listen: 0.0.0.0:{{ patroni_pg_port }}
