@@ -111,6 +111,74 @@
           "refId": "A"
         }
       ]
+    },
+    {
+      "id": 6,
+      "title": "Patroni cluster role",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 20 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "horizontal",
+        "textMode": "value_and_name",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "REPLICA", "color": "blue" }, "1": { "text": "LEADER", "color": "green" } } }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }, { "color": "green", "value": 1 }] },
+          "noValue": "NO DATA"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "patroni_primary",
+          "legendFormat": "{{instance}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Replication lag (bytes, from the leader's view)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "bytes", "min": 0 },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "pg_replication_slots_pg_wal_lsn_diff",
+          "legendFormat": "{{instance}} -> {{slot_name}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "ledger-service throughput (req/s)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "reqps", "min": 0 },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum by (instance) (rate(http_requests_total{job=\"ledger-service\"}[1m]))",
+          "legendFormat": "{{instance}}",
+          "refId": "A"
+        }
+      ]
     }
   ]
 }

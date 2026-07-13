@@ -34,3 +34,24 @@ scrape_configs:
         labels:
           instance: "{{ host.split('.')[0] }}"
 {% endfor %}
+
+  # Patroni's own REST API exposes a native /metrics endpoint (no
+  # separate exporter needed) with patroni_primary/patroni_replica —
+  # the actual source of truth for cluster role, more reliable than
+  # inferring it from postgres_exporter's metric set.
+  - job_name: patroni
+    metrics_path: /metrics
+    static_configs:
+{% for host in patroni_pg_hosts | default([]) %}
+      - targets: ["{{ host }}:{{ patroni_restapi_port | default(8008) }}"]
+        labels:
+          instance: "{{ host.split('.')[0] }}"
+{% endfor %}
+
+  - job_name: ledger-service
+    static_configs:
+{% for target in banking_app_scrape_targets %}
+      - targets: ["{{ target }}.local:8000"]
+        labels:
+          instance: "{{ target }}"
+{% endfor %}

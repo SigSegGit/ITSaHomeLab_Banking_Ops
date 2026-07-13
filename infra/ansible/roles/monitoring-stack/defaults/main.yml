@@ -21,3 +21,12 @@ monitoring_cloud_scrape_targets: []
 # Example once the GCP node's static IP is known:
 #   - name: gcp-burst-1
 #     address: "203.0.113.10:9100"
+
+# ledger-service's own /metrics (prometheus_fastapi_instrumentator) —
+# real app throughput, the mission's 4th "real performance monitoring"
+# point. Same explicit-list discipline as monitoring_scrape_targets
+# above: only hosts confirmed actually running the app, not derived
+# from banking_app_nodes (which isn't in scope here anyway — this
+# host, monitoring_host, isn't a banking_app_nodes member itself).
+banking_app_scrape_targets:
+  - MorePower
