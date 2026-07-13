@@ -32,24 +32,34 @@ bootstrap:
         max_wal_senders: 10
         max_replication_slots: 10
         wal_keep_size: 128MB
+      # Deliberately under dcs.postgresql, not the top-level
+      # bootstrap.pg_hba sibling of `initdb` — that key is a
+      # ONE-TIME-ONLY setting Patroni applies during the very first
+      # cluster creation and never looks at again (found live: editing
+      # it and redeploying had zero effect on an already-bootstrapped
+      # cluster, no error, no log line, pg_hba.conf on disk just never
+      # changed). Config under dcs.* is the "dynamic configuration"
+      # synced through the DCS/raft to every node on every change —
+      # this is the actually-supported way to manage pg_hba on a
+      # running cluster.
+      pg_hba:
+        - host replication replicator 127.0.0.1/32 md5
+        - host replication replicator 100.64.0.0/10 md5
+        - host all all 100.64.0.0/10 md5
+        - host all all 127.0.0.1/32 md5
+        # ledger-service (apps/ledger-service) runs in a Docker
+        # container and connects to the Patroni cluster over Tailscale
+        # — but Postgres sees the container's own bridge-network
+        # address, not a NAT'd host address (found live: "no
+        # pg_hba.conf entry for host 172.18.0.2"). 172.16.0.0/12
+        # covers any standard Docker bridge subnet rather than
+        # hardcoding this specific compose project's current one,
+        # which Docker assigns and can change.
+        - host all all 172.16.0.0/12 md5
 
   initdb:
     - encoding: UTF8
     - data-checksums
-
-  pg_hba:
-    - host replication replicator 127.0.0.1/32 md5
-    - host replication replicator 100.64.0.0/10 md5
-    - host all all 100.64.0.0/10 md5
-    - host all all 127.0.0.1/32 md5
-    # ledger-service (apps/ledger-service) runs in a Docker container
-    # and connects to the Patroni cluster over Tailscale — but Postgres
-    # sees the container's own bridge-network address, not a NAT'd
-    # host address (found live: "no pg_hba.conf entry for host
-    # 172.18.0.2"). 172.16.0.0/12 covers every standard Docker bridge
-    # subnet rather than hardcoding this specific compose project's
-    # current one, which Docker assigns and can change.
-    - host all all 172.16.0.0/12 md5
 
   # No bootstrap.users here on purpose: Patroni 4.x removed that
   # mechanism entirely (silently — bootstrap "succeeds" without ever
