@@ -8,12 +8,23 @@ scrape_configs:
     static_configs:
       - targets: ["localhost:9090"]
 
+{% set tailnet_short_names = patroni_pg_hosts | default([]) | map('regex_replace', '\..*$', '') | list %}
   - job_name: node
     static_configs:
 {% for target in monitoring_scrape_targets %}
+{% if target | lower in tailnet_short_names %}
+      # mDNS doesn't cross the network boundary between this host's
+      # LAN and a roaming/NAT'd node (found live: MorePower.local
+      # resolves fine on its own LAN but not from smallrevolt) —
+      # prefer the tailnet address for any host that's actually on it.
+      - targets: ["{{ target | lower }}.{{ tailscale_tailnet_domain }}:9100"]
+        labels:
+          instance: "{{ target }}"
+{% else %}
       - targets: ["{{ target }}.local:9100"]
         labels:
           instance: "{{ target }}"
+{% endif %}
 {% endfor %}
 {% for target in monitoring_cloud_scrape_targets %}
       - targets: ["{{ target.address }}"]
@@ -51,7 +62,13 @@ scrape_configs:
   - job_name: ledger-service
     static_configs:
 {% for target in banking_app_scrape_targets %}
+{% if target | lower in tailnet_short_names %}
+      - targets: ["{{ target | lower }}.{{ tailscale_tailnet_domain }}:8000"]
+        labels:
+          instance: "{{ target }}"
+{% else %}
       - targets: ["{{ target }}.local:8000"]
         labels:
           instance: "{{ target }}"
+{% endif %}
 {% endfor %}
