@@ -37,6 +37,16 @@
     mode: "0644"
   when: tailscale_enabled and ansible_facts['os_family'] == "Debian"
 
+# Real bug hit live on MorePower (Debian 13/trixie): apt_repository
+# shells out to the `gpg` binary and fails outright if it's missing —
+# not installed by default on a minimal image, unlike smallrevolt
+# (Debian 12/bookworm) where it happened to already be present.
+- name: Ensure gnupg is installed (apt_repository needs the gpg binary)
+  ansible.builtin.package:
+    name: gnupg
+    state: present
+  when: tailscale_enabled and ansible_facts['os_family'] == "Debian"
+
 - name: Add the Tailscale apt repository
   ansible.builtin.apt_repository:
     repo: >-
